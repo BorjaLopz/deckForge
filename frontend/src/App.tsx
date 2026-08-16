@@ -8,6 +8,7 @@ import InformationCardPage from './pages/InformationCardPage'
 import NotFoundPage from './pages/NotFoundPage'
 import RutaProtegida from './routing/RutaProtegida'
 import Navbar from './components/Navbar'
+import ListadoCartasPage from './pages/ListadoCartasPage'
 
 function App() {
 
@@ -16,6 +17,7 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/buscar" element={<ListadoCartasPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/inventario" element={
           <RutaProtegida>

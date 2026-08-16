@@ -1,5 +1,11 @@
+import BuscadorCartas from "../components/BuscadorCartas";
+
 const LandingPage = () => {
-    return <div>Lading Page</div>
+    return (
+        <div>
+            <BuscadorCartas />
+        </div>
+    )
 }
 
 export default LandingPage;
