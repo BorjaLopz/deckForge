@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { buscar } from "../controllers/cartas.controller";
+import { buscar, obtenerPorId } from "../controllers/cartas.controller";
 
 const router = Router();
 router.get("/buscar", buscar)
+router.get("/:scryfallId", obtenerPorId); // siempre la última, es la más "genérica"
 
 export default router;

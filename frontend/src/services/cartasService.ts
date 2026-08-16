@@ -13,3 +13,14 @@ export const buscarCartas = async (nombre: string) => {
     const data = await response.json();
     return data.data; // el objeto "List" de Scryfall: { object, total_cards, data }
 };
+
+export const obtenerCartaPorId = async (id: string) => {
+    const response = await fetch(BACKEND_BASE_URL + `/api/cartas/${id}`, { method: "GET" });
+
+    if (!response.ok) {
+        throw new Error("Error obteniendo la carta");
+    }
+
+    const data = await response.json();
+    return data.data;
+};
