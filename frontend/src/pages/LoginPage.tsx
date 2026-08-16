@@ -52,6 +52,8 @@ const LoginPage = () => {
                     <input type="checkbox" checked={isPasswordVisible} onChange={(e) => setIsPasswordVisible((prev) => !prev)} />
                 </div>
 
+                {error && <p style={{ color: "red" }}>{error}</p>}
+
                 <button type="submit">
                     {isRegister ? "Registrame" : "Entrar"}
                 </button>
