@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useLocation, Link } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { buscarCartas } from "../services/cartasService";
 import CartaResumen from "../components/CartaResumen";
 
