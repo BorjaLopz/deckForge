@@ -1,3 +1,14 @@
+import { Link } from "react-router-dom"
+
+interface CartaResumenProps {
+    id: string,
+    nombre: string,
+    imagen?: string,
+    expansion: string,
+    numeroColeccion: string,
+    variante?: "lista" | "cuadricula"
+}
+
 const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, variante = "lista" }: CartaResumenProps) => {
     if (variante === "cuadricula") {
         return (
@@ -41,3 +52,5 @@ const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, variante
         </Link>
     )
 }
+
+export default CartaResumen;
