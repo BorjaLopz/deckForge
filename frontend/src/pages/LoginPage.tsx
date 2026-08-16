@@ -49,7 +49,7 @@ const LoginPage = () => {
 
                 <div>
                     <label htmlFor="">Contraseña Visible</label>
-                    <input type="checkbox" checked={isPasswordVisible} onChange={(e) => setIsPasswordVisible((prev) => !prev)} />
+                    <input type="checkbox" checked={isPasswordVisible} onChange={() => setIsPasswordVisible((prev) => !prev)} />
                 </div>
 
                 {error && <p style={{ color: "red" }}>{error}</p>}
