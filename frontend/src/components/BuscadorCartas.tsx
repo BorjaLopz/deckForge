@@ -41,32 +41,57 @@ const BuscadorCartas = () => {
     }, [busqueda])
 
     return (
-        <section>
-            <form onSubmit={handleOnSearch}>
-                <label htmlFor="">Buscador de cartas</label>
-                <input type="text" placeholder="Introduce el nombre de la carta" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+        <section className="w-full">
+            <form onSubmit={handleOnSearch} className="flex items-stretch bg-noc-surface rounded-lg shadow-lg overflow-hidden border border-noc-divider">
+                <select
+                    disabled
+                    className="bg-transparent border-none border-r border-noc-divider px-3 text-sm text-noc-neutral-500 focus:outline-none cursor-not-allowed"
+                >
+                    <option>Magic</option>
+                </select>
+                <input
+                    type="text"
+                    placeholder="Busca una carta por nombre..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    className="flex-1 bg-transparent border-none px-4 py-3 text-sm text-noc-text placeholder:text-noc-neutral-500 focus:outline-none"
+                />
+                <button
+                    type="submit"
+                    className="bg-transparent border-l border-noc-divider text-noc-accent hover:bg-noc-accent-900 transition-colors px-5 text-sm font-medium"
+                >
+                    Buscar
+                </button>
             </form>
 
-            {cargando && <p>Buscando...</p>}
+            {cargando && <p className="text-sm text-noc-neutral-500 mt-2">Buscando...</p>}
 
-            {resultados?.slice(0, 5).map((carta) => (
-                <CartaResumen
-                    key={carta.id}
-                    id={carta.id}
-                    nombre={carta.name}
-                    imagen={carta.image_uris?.small}
-                    expansion={carta.set_name}
-                    numeroColeccion={carta.collector_number}
-                    variante="lista"
-                />
-            ))}
+            {resultados.length > 0 && (
+                <div className="bg-noc-surface rounded-lg mt-2 overflow-hidden border border-noc-divider text-left">
+                    {resultados.slice(0, 5).map((carta) => (
+                        <CartaResumen
+                            key={carta.id}
+                            id={carta.id}
+                            nombre={carta.name}
+                            imagen={carta.image_uris?.small}
+                            expansion={carta.set_name}
+                            numeroColeccion={carta.collector_number}
+                        />
+                    ))}
 
-            {totalCartas > 5 && (
-                <Link to={`/buscar?nombre=${encodeURIComponent(busqueda)}`} state={{ resultadosPrevios: resultados }}>Ver todas ({totalCartas})</Link>
-            )
-            }
-        </section >
-    )
+                    {totalCartas > 5 && (
+                        <Link
+                            to={`/buscar?nombre=${encodeURIComponent(busqueda)}`}
+                            state={{ resultadosPrevios: resultados }}
+                            className="block text-center text-sm text-noc-accent hover:text-noc-accent-light py-2.5 border-t border-noc-divider transition-colors"
+                        >
+                            Ver todas ({totalCartas})
+                        </Link>
+                    )}
+                </div>
+            )}
+        </section>
+    );
 }
 
 export default BuscadorCartas;

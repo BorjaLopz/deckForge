@@ -33,37 +33,63 @@ const LoginPage = () => {
     }
 
     return (
-        <div>
-            <h1 className="text-3xl font-bold">{isRegister ? "Crear nueva cuenta" : "Iniciar sesión"}</h1>
+        <div className="max-w-sm mx-auto mt-16 px-6">
+            <h1 className="text-2xl font-heading font-medium text-noc-text mb-6 text-center">
+                {isRegister ? "Crear nueva cuenta" : "Iniciar sesión"}
+            </h1>
 
-            <form onSubmit={handleOnSubmit}>
+            <form onSubmit={handleOnSubmit} className="flex flex-col gap-4">
                 <div>
-                    <label htmlFor="">Email</label>
-                    <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <label className="block text-xs text-noc-neutral-500 mb-1">Email</label>
+                    <input
+                        type="text"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 text-sm bg-noc-surface border border-noc-divider rounded-lg text-noc-text focus:outline-none focus:border-noc-accent transition-colors"
+                    />
                 </div>
 
                 <div>
-                    <label htmlFor="">Contraseña</label>
-                    <input type={isPasswordVisible ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <label className="block text-xs text-noc-neutral-500 mb-1">Contraseña</label>
+                    <input
+                        type={isPasswordVisible ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 text-sm bg-noc-surface border border-noc-divider rounded-lg text-noc-text focus:outline-none focus:border-noc-accent transition-colors"
+                    />
                 </div>
 
-                <div>
-                    <label htmlFor="">Contraseña Visible</label>
-                    <input type="checkbox" checked={isPasswordVisible} onChange={() => setIsPasswordVisible((prev) => !prev)} />
-                </div>
+                <label className="flex items-center gap-2 text-sm text-noc-neutral-500">
+                    <input
+                        type="checkbox"
+                        checked={isPasswordVisible}
+                        onChange={() => setIsPasswordVisible((prev) => !prev)}
+                        className="accent-noc-accent"
+                    />
+                    Mostrar contraseña
+                </label>
 
-                {error && <p style={{ color: "red" }}>{error}</p>}
+                {error && <p className="text-sm text-red-400">{error}</p>}
 
-                <button type="submit">
+                <button
+                    type="submit"
+                    className="w-full bg-transparent border border-noc-accent text-noc-accent hover:bg-noc-accent-900 transition-colors rounded-lg py-2 text-sm font-medium mt-2"
+                >
                     {isRegister ? "Registrame" : "Entrar"}
                 </button>
             </form>
 
-            <button type="button" onClick={() => setIsRegister(!isRegister)}>
-                {isRegister ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Registrate"}
+            <button
+                type="button"
+                onClick={() => setIsRegister(!isRegister)}
+                className="w-full text-center text-sm text-noc-accent hover:text-noc-accent-light transition-colors mt-4"
+            >
+                {isRegister ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate"}
             </button>
         </div>
-    )
+    );
 }
 
 export default LoginPage;

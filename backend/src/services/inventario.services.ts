@@ -129,3 +129,30 @@ export const guardarCartaEnInventario = async (carta: {
 
     return cartaId;
 }
+
+
+export const obtenerInventario = async (usuarioId: string, filtros: { nombre?: string | undefined, foil?: boolean | undefined }) => {
+    const condiciones: string[] = ["inventario.usuario_id = $1"]
+    const valores: any[] = [usuarioId];
+
+    if (filtros.nombre) {
+        valores.push(`%${filtros.nombre}%`);
+        condiciones.push(`cartas.nombre ILIKE $${valores.length}`)
+    }
+
+    if (filtros.foil !== undefined) {
+        valores.push(filtros.foil); //=== "true" es lo mismo    
+        condiciones.push(`cartas.foil = $${valores.length}`)
+    }
+
+    const sql = `
+        SELECT cartas.*, inventario.cantidad_poseida
+        FROM inventario
+        INNER JOIN cartas ON inventario.carta_id = cartas.id
+        WHERE ${condiciones.join(" AND ")}
+        `;
+
+    const resultados = await pool.query(sql, valores);
+    return resultados.rows;
+
+}

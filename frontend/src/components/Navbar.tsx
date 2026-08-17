@@ -4,31 +4,42 @@ import { useAuth } from "../hooks/useAuth";
 const Navbar = () => {
     const { usuario, cargando, cerrarSesion } = useAuth();
 
-    const isUserAvailable = !cargando && usuario;
     return (
-        <nav>
-            <Link to="/">Inicio</Link>
-            {isUserAvailable && (
+        <nav className="flex items-center gap-6 px-8 py-4 bg-noc-surface border-b border-noc-divider">
+            <Link to="/" className="text-noc-text hover:text-noc-accent transition-colors font-heading font-medium">
+                Inicio
+            </Link>
+
+            {!cargando && usuario && (
                 <>
-                    <Link to="/inventario">Inventario</Link>
-                    <Link to="/mazos">Mazos</Link>
+                    <Link to="/inventario" className="text-noc-text hover:text-noc-accent transition-colors">
+                        Inventario
+                    </Link>
+                    <Link to="/mazos" className="text-noc-text hover:text-noc-accent transition-colors">
+                        Mazos
+                    </Link>
                 </>
             )}
 
-            {!isUserAvailable && (
-                <Link to="/login">Iniciar sesión</Link>
+            {!cargando && !usuario && (
+                <Link to="/login" className="ml-auto text-noc-accent hover:text-noc-accent-light transition-colors">
+                    Iniciar sesión
+                </Link>
             )}
-
 
             {!cargando && usuario && (
-                <div>
-                    <span>{usuario.email}</span>
-                    <button onClick={cerrarSesion}>Cerrar sesión</button>
+                <div className="ml-auto flex items-center gap-3">
+                    <span className="text-sm text-noc-neutral-500">{usuario.email}</span>
+                    <button
+                        onClick={cerrarSesion}
+                        className="text-sm bg-transparent border border-noc-divider hover:bg-noc-neutral-800 text-noc-text px-3 py-1.5 rounded-md transition-colors"
+                    >
+                        Cerrar sesión
+                    </button>
                 </div>
             )}
-
         </nav>
-    )
-}
+    );
+};
 
 export default Navbar;

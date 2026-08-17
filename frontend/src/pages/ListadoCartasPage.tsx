@@ -42,13 +42,17 @@ const ListadoCartasPage = () => {
     const totalPaginas = Math.ceil(resultados.length / 25);
 
     return (
-        <div>
-            <h1>Resultados para "{nombre}"</h1>
+        <div className="max-w-5xl mx-auto px-8 py-6">
+            <div className="flex items-baseline justify-between mb-2">
+                <h1 className="text-2xl font-heading font-medium text-noc-text">
+                    Resultados para "{nombre}"
+                </h1>
+                <span className="text-sm text-noc-neutral-500">{resultados.length} cartas</span>
+            </div>
 
-            {cargando && <p>Cargando...</p>}
+            {cargando && <p className="text-noc-neutral-500 mt-4">Cargando...</p>}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6 mb-8">
                 {cartasPagina.map((carta) => (
                     <CartaResumen
                         key={carta.id}
@@ -62,13 +66,25 @@ const ListadoCartasPage = () => {
                 ))}
             </div>
 
-            <button disabled={pagina === 1} onClick={() => setPagina((p) => p - 1)}>
-                Anterior
-            </button>
-            <span>Página {pagina} de {totalPaginas}</span>
-            <button disabled={pagina === totalPaginas} onClick={() => setPagina((p) => p + 1)}>
-                Siguiente
-            </button>
+            <div className="flex justify-center items-center gap-2">
+                <button
+                    disabled={pagina === 1}
+                    onClick={() => setPagina((p) => p - 1)}
+                    className="text-sm border border-noc-divider text-noc-text px-3 py-1.5 rounded-md hover:bg-noc-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                    Anterior
+                </button>
+                <span className="text-sm text-noc-neutral-500 px-2">
+                    Página {pagina} de {totalPaginas}
+                </span>
+                <button
+                    disabled={pagina === totalPaginas}
+                    onClick={() => setPagina((p) => p + 1)}
+                    className="text-sm border border-noc-divider text-noc-text px-3 py-1.5 rounded-md hover:bg-noc-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                    Siguiente
+                </button>
+            </div>
         </div>
     );
 }

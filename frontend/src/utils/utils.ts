@@ -1,1 +1,1 @@
-export const BACKEND_BASE_URL = "https://deckforge-jegv.onrender.com"
+export const BACKEND_BASE_URL = import.meta.env.VITE_API_URL;
