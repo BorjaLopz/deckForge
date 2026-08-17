@@ -20,5 +20,5 @@ const colores: Record<string, string> = {
 
 export const dictionaries: Record<string, Record<string, string>> = {
     tipos: diccionarioPrueba,
-    color: colores
+    colores: colores
 }
