@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { buildError, buildResponse } from "../utils/response";
-import { guardarCartaEnInventario, obtenerInventario } from "../services/inventario.services";
+import { actualizarCantidadInventario, eliminarCartaDeInventario, guardarCartaEnInventario, obtenerInventario } from "../services/inventario.services";
 
 export const agregarInventario = async (req: Request, res: Response) => {
     try {
@@ -47,5 +47,35 @@ export const listarInventario = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Error obteniendo el inventario", error);
         buildError(res, "No se pudo obtener el inventario", "INVENTARIO_FETCH_ERROR", 500);
+    }
+}
+
+export const ajustarCantidad = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = (req as any).usuarioId;
+        const { cartaId } = req.params;
+        const { delta } = req.body;
+
+        if (typeof delta !== "number") {
+            return buildError(res, "El delta debe de ser un numero", "INVENTARIO_DELTA_INVALIDO", 400);
+        }
+
+        const resultado = await actualizarCantidadInventario(usuarioId, Number(cartaId), delta);
+        buildResponse(res, resultado)
+    } catch (error) {
+        console.error("Error ajustando cantidad. ", error);
+        buildError(res, "No se pudo ajustar la cantidad", "INVENTARIO_UPDATE_ERROR", 500)
+    }
+}
+
+export const eliminarDeInventario = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = (req as any).usuarioId;
+        const { cartaId } = req.params;
+        await eliminarCartaDeInventario(usuarioId, Number(cartaId));
+        buildResponse(res, { eliminado: true });
+    } catch (error) {
+        console.error("Error eliminando del inventario. ", error);
+        buildError(res, "No se pudo eliminar la carta", "INVENTARIO_DELETE_ERROR", 500);
     }
 }

@@ -192,3 +192,25 @@ export const obtenerInventario = async (usuarioId: string,
     return resultados.rows;
 
 }
+
+export const actualizarCantidadInventario = async (usuarioId: string, cartaId: number, delta: number) => {
+    const sql = `
+        UPDATE inventario
+        SET cantidad_poseida = GREATEST(cantidad_poseida + $1, 0)
+        WHERE usuario_id = $2 AND carta_id = $3
+        RETURNING cantidad_poseida
+    `
+
+    const resultado = await pool.query(sql, [delta, usuarioId, cartaId]);
+
+    if (resultado.rows.length === 0) {
+        throw new Error("No se encontró esa carta en el inventario del usuario");
+    }
+
+    return resultado.rows[0];
+}
+
+export const eliminarCartaDeInventario = async (usuarioId: string, cartaId: number) => {
+    const sql = `DELETE FROM inventario WHERE usuario_id = $1 AND carta_id = $2`;
+    await pool.query(sql, [usuarioId, cartaId])
+}
