@@ -61,7 +61,7 @@ export const obtenerPorId = async (req: Request, res: Response) => {
             subtipos = data.type_line.split("—")[1].trim().split(" ");
         }
 
-        const coloresTraducidos = (data.colors || []).map((c: string) => translator("color", c));
+        const coloresTraducidos = (data.colors || []).map((c: string) => translator("colores", c));
 
         buildResponse(res, {
             ...data,
