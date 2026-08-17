@@ -73,13 +73,13 @@ const BuscadorCartas = () => {
                             key={carta.id}
                             id={carta.id}
                             nombre={carta.name}
-                            imagen={carta.image_uris?.small}
+                            imagen={carta.image_uris?.medium}
                             expansion={carta.set_name}
                             numeroColeccion={carta.collector_number}
                         />
                     ))}
 
-                    {totalCartas > 5 && (
+                    {totalCartas > 0 && (
                         <Link
                             to={`/buscar?nombre=${encodeURIComponent(busqueda)}`}
                             state={{ resultadosPrevios: resultados }}

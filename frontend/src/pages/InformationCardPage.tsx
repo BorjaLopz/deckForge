@@ -56,9 +56,9 @@ const InformationCardPage = () => {
     return (
         <div className="max-w-4xl mx-auto px-8 py-6 flex flex-col md:flex-row gap-8 text-noc-text">
             <div className="shrink-0">
-                {carta.image_uris?.normal && (
+                {carta.image_uris?.large && (
                     <img
-                        src={carta.image_uris.normal}
+                        src={carta.image_uris.large}
                         alt={carta.name}
                         className="w-72 rounded-lg shadow-lg"
                     />
@@ -76,6 +76,31 @@ const InformationCardPage = () => {
                     {carta.set_name} · {carta.tipos_traducidos?.join(" ")}
                     {carta.subtipos_carta?.length > 0 && ` — ${carta.subtipos_carta.join(" ")}`}
                 </p>
+
+                {(carta.prices?.eur || carta.prices?.eur_foil) && (
+                    <div className="flex gap-3">
+                        {carta.prices?.eur && (
+                            <div className="bg-noc-surface rounded-lg p-3 flex-1">
+                                <div className="text-[10px] tracking-widest uppercase text-noc-accent mb-1">
+                                    Precio
+                                </div>
+                                <div className="font-heading font-medium text-noc-text">
+                                    {carta.prices.eur} €
+                                </div>
+                            </div>
+                        )}
+                        {carta.prices?.eur_foil && (
+                            <div className="bg-noc-surface rounded-lg p-3 flex-1">
+                                <div className="text-[10px] tracking-widest uppercase text-noc-accent mb-1">
+                                    Precio (Foil)
+                                </div>
+                                <div className="font-heading font-medium text-noc-text">
+                                    {carta.prices.eur_foil} €
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="bg-noc-surface rounded-lg p-4 mt-2">
                     <div className="text-[10px] tracking-widest uppercase text-noc-accent mb-2">

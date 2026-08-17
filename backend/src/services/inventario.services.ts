@@ -11,15 +11,16 @@ const insertarOAsignarCarta = async (carta: {
     expansionId: number | null;
     numeroCarta: string | null;
     foil: boolean;
+    imagenUrl: string | null;
 }): Promise<number> => {
 
-    const sql = `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                ON CONFLICT (scryfall_id) DO UPDATE SET scryfall_id = EXCLUDED.scryfall_id
+    const sql = `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ON CONFLICT (scryfall_id) DO UPDATE SET imagen_url = EXCLUDED.imagen_url
                 RETURNING id               
                 `
 
-    const resultado = await pool.query(sql, [carta.scryfallId, carta.nombre, carta.manaValue, carta.manaCost, carta.ataque, carta.vida, carta.descripcion, carta.expansionId, carta.numeroCarta, carta.foil])
+    const resultado = await pool.query(sql, [carta.scryfallId, carta.nombre, carta.manaValue, carta.manaCost, carta.ataque, carta.vida, carta.descripcion, carta.expansionId, carta.numeroCarta, carta.foil, carta.imagenUrl])
 
     return resultado.rows[0].id;
 
@@ -119,6 +120,7 @@ export const guardarCartaEnInventario = async (carta: {
     expansionId: number | null;
     numeroCarta: string | null;
     foil: boolean;
+    imagenUrl: string | null;
     colores: string[];
     tipos: string[]
 }, userId: string) => {
@@ -131,7 +133,16 @@ export const guardarCartaEnInventario = async (carta: {
 }
 
 
-export const obtenerInventario = async (usuarioId: string, filtros: { nombre?: string | undefined, foil?: boolean | undefined }) => {
+export const obtenerInventario = async (usuarioId: string,
+    filtros: {
+        nombre?: string | undefined,
+        foil?: boolean | undefined,
+        colores?: string[] | undefined,
+        tipo?: string | undefined
+        manaValueMin?: number | undefined
+        manaValueMax?: number | undefined
+    }
+) => {
     const condiciones: string[] = ["inventario.usuario_id = $1"]
     const valores: any[] = [usuarioId];
 
@@ -145,12 +156,37 @@ export const obtenerInventario = async (usuarioId: string, filtros: { nombre?: s
         condiciones.push(`cartas.foil = $${valores.length}`)
     }
 
+    if (filtros.colores && filtros.colores.length > 0 && filtros.colores.length < 6) {
+        const placeholders = filtros.colores.map((_, i) => `$${valores.length + i + 1}`);
+        valores.push(...filtros.colores);
+        condiciones.push(`colores.nombre IN (${placeholders.join(", ")})`);
+    }
+
+    if (filtros.tipo) {
+        valores.push(filtros.tipo);
+        condiciones.push(`tipos_carta.nombre = $${valores.length}`);
+    }
+
+    if (filtros.manaValueMin !== undefined) {
+        valores.push(filtros.manaValueMin);
+        condiciones.push(`cartas.mana_value >= $${valores.length}`);
+    }
+
+    if (filtros.manaValueMax !== undefined) {
+        valores.push(filtros.manaValueMax);
+        condiciones.push(`cartas.mana_value <= $${valores.length}`);
+    }
+
     const sql = `
-        SELECT cartas.*, inventario.cantidad_poseida
+        SELECT DISTINCT cartas.*, inventario.cantidad_poseida
         FROM inventario
         INNER JOIN cartas ON inventario.carta_id = cartas.id
+        LEFT JOIN carta_colores ON carta_colores.carta_id = cartas.id
+        LEFT JOIN colores ON colores.id = carta_colores.color_id
+        LEFT JOIN carta_tipos ON carta_tipos.carta_id = cartas.id
+        LEFT JOIN tipos_carta ON tipos_carta.id = carta_tipos.tipo_carta_id
         WHERE ${condiciones.join(" AND ")}
-        `;
+    `;
 
     const resultados = await pool.query(sql, valores);
     return resultados.rows;

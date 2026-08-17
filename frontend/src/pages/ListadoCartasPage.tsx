@@ -58,7 +58,7 @@ const ListadoCartasPage = () => {
                         key={carta.id}
                         id={carta.id}
                         nombre={carta.name}
-                        imagen={carta.image_uris?.small}
+                        imagen={carta.image_uris?.large}
                         expansion={carta.set_name}
                         numeroColeccion={carta.collector_number}
                         variante="cuadricula"

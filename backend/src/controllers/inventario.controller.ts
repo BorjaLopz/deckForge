@@ -18,9 +18,31 @@ export const listarInventario = async (req: Request, res: Response) => {
         const usuarioId = (req as any).usuarioId;
 
         const nombre = req.query.nombre ? String(req.query.nombre) : undefined;
+
+        const colores = req.query.colores
+            ? String(req.query.colores).split(",")
+            : undefined;
+
+        const tipo = req.query.tipo ? String(req.query.tipo) : undefined;
         const foil = req.query.foil !== undefined ? req.query.foil === "true" : undefined;
 
-        const resultado = await obtenerInventario(usuarioId, { nombre, foil });
+        /* Confirmamos con seguridad que sean valores numéricos */
+        const manaValueMinRaw = req.query.manaValueMin !== undefined ? Number(req.query.manaValueMin) : undefined;
+        const manaValueMin = manaValueMinRaw !== undefined && !isNaN(manaValueMinRaw) ? manaValueMinRaw : undefined;
+
+        const manaValueMaxRaw = req.query.manaValueMax !== undefined ? Number(req.query.manaValueMax) : undefined;
+        const manaValueMax = manaValueMaxRaw !== undefined && !isNaN(manaValueMaxRaw) ? manaValueMaxRaw : undefined;
+
+        const resultado = await obtenerInventario(usuarioId,
+            {
+                nombre,
+                foil,
+                colores,
+                tipo,
+                manaValueMax,
+                manaValueMin
+            }
+        );
         buildResponse(res, resultado);
     } catch (error) {
         console.error("Error obteniendo el inventario", error);
