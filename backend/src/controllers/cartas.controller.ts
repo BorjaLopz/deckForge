@@ -4,7 +4,15 @@ import { translator } from "../utils/translator";
 
 export const buscar = async (req: Request, res: Response) => {
     try {
-        const dataBruto = await fetch(`https://api.scryfall.com/cards/search?q=${req.query.nombre}&unique=prints`, {
+
+        const { nombre } = req.query;
+
+        const partesQuery = [
+            nombre,
+            "(lang:en or lang:es)"
+        ].filter(Boolean).join(" ");
+
+        const dataBruto = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(partesQuery)}&unique=prints`, {
             method: "GET",
             headers: {
                 "User-Agent": "deckForge/1.0",

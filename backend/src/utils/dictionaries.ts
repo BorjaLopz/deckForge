@@ -10,6 +10,11 @@ const colores: Record<string, string> = {
     Blue: "Azul",
     Black: "Negro",
     Red: "Rojo",
+    W: "Blanco",
+    G: "Verde",
+    U: "Azul",
+    B: "Negro",
+    R: "Rojo",
 }
 
 
