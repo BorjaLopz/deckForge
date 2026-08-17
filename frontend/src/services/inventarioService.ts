@@ -34,3 +34,40 @@ export const obtenerInventario = async (accessToken: string,
     const data = await response.json();
     return data.data;
 }
+
+export const ajustarCantidadInventario = async (accessToken: string, cartaId: number, delta: number) => {
+
+    const response = await fetch(`${BACKEND_BASE_URL}/api/inventario/${cartaId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ delta }),
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        }
+    })
+
+    if (!response.ok) {
+        throw new Error("Error ajustando la cantidad en el inventario");
+    }
+
+    const data = await response.json();
+    return data.data;
+}
+
+export const eliminarDeInventarioService = async (accessToken: string, cartaId: number
+) => {
+
+    const response = await fetch(`${BACKEND_BASE_URL}/api/inventario/${cartaId}`, {
+        method: "DELETE",
+        headers: {
+            "Authorization": `Bearer ${accessToken}`
+        }
+    })
+
+    if (!response.ok) {
+        throw new Error("Error eliminando la carta del inventario");
+    }
+
+    const data = await response.json();
+    return data.data;
+}

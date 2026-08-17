@@ -73,7 +73,7 @@ const BuscadorCartas = () => {
                             key={carta.id}
                             id={carta.id}
                             nombre={carta.name}
-                            imagen={carta.image_uris?.medium}
+                            imagen={carta.image_uris?.normal}
                             expansion={carta.set_name}
                             numeroColeccion={carta.collector_number}
                         />

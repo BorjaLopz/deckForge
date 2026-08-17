@@ -186,6 +186,7 @@ export const obtenerInventario = async (usuarioId: string,
         LEFT JOIN carta_tipos ON carta_tipos.carta_id = cartas.id
         LEFT JOIN tipos_carta ON tipos_carta.id = carta_tipos.tipo_carta_id
         WHERE ${condiciones.join(" AND ")}
+        ORDER BY cartas.nombre ASC
     `;
 
     const resultados = await pool.query(sql, valores);
