@@ -1,4 +1,5 @@
 import { BACKEND_BASE_URL } from "../utils/utils";
+import type { CartaInventario } from "../types/inventario";
 
 export const obtenerInventario = async (accessToken: string,
     filtros?: {
@@ -7,9 +8,12 @@ export const obtenerInventario = async (accessToken: string,
         colores?: string,
         tipo?: string,
         manaValueMin?: number,
-        manaValueMax?: number
+        manaValueMax?: number,
+        rareza?: string,
+        ordenarPor?: string,
+        direccion?: string
     }
-) => {
+): Promise<CartaInventario[]> => {
     const params = new URLSearchParams();
 
     if (filtros?.nombre) params.set("nombre", filtros.nombre);
@@ -18,6 +22,9 @@ export const obtenerInventario = async (accessToken: string,
     if (filtros?.tipo) params.set("tipo", filtros.tipo);
     if (filtros?.manaValueMin !== undefined) params.set("manaValueMin", String(filtros.manaValueMin));
     if (filtros?.manaValueMax !== undefined) params.set("manaValueMax", String(filtros.manaValueMax));
+    if (filtros?.rareza) params.set("rareza", filtros.rareza);
+    if (filtros?.ordenarPor) params.set("ordenarPor", filtros.ordenarPor);
+    if (filtros?.direccion) params.set("direccion", filtros.direccion);
 
 
     const response = await fetch(`${BACKEND_BASE_URL}/api/inventario?${params.toString()}`, {
@@ -35,7 +42,7 @@ export const obtenerInventario = async (accessToken: string,
     return data.data;
 }
 
-export const ajustarCantidadInventario = async (accessToken: string, cartaId: number, delta: number) => {
+export const ajustarCantidadInventario = async (accessToken: string, cartaId: number, delta: number): Promise<{ cantidad_poseida: number }> => {
 
     const response = await fetch(`${BACKEND_BASE_URL}/api/inventario/${cartaId}`, {
         method: "PATCH",

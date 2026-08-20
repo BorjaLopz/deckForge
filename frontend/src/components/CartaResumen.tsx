@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { RAREZA_HEX } from "../constants/cartas"
 
 interface CartaResumenProps {
     id: string,
@@ -6,10 +7,11 @@ interface CartaResumenProps {
     imagen?: string,
     expansion: string,
     numeroColeccion: string,
+    rareza?: string,
     variante?: "lista" | "cuadricula"
 }
 
-const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, variante = "lista" }: CartaResumenProps) => {
+const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, rareza, variante = "lista" }: CartaResumenProps) => {
     if (variante === "cuadricula") {
         return (
             <Link
@@ -25,7 +27,16 @@ const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, variante
                 )}
                 <div className="p-2 flex flex-col gap-0.5">
                     <p className="font-medium text-sm text-noc-text truncate">{nombre}</p>
-                    <p className="text-xs text-noc-neutral-500 truncate">{expansion} — #{numeroColeccion}</p>
+                    <p className="text-xs text-noc-neutral-500 flex items-center gap-1.5 uppercase tracking-wide">
+                        {rareza && (
+                            <span
+                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                style={{ backgroundColor: RAREZA_HEX[rareza] ?? "#8A8F98" }}
+                                aria-hidden="true"
+                            />
+                        )}
+                        {expansion} · #{numeroColeccion}
+                    </p>
                 </div>
             </Link>
         )

@@ -1,16 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { buscarCartas } from "../services/cartasService";
 import CartaResumen from "./CartaResumen";
+import type { CartaScryfall } from "../types/scryfall";
 
 const BuscadorCartas = () => {
     const [busqueda, setBusqueda] = useState<string>("");
-    const [resultados, setResultados] = useState<any[]>([]);
+    const [resultados, setResultados] = useState<CartaScryfall[]>([]);
     const [cargando, setCargando] = useState<boolean>(false);
     const [totalCartas, setTotalCartas] = useState<number>(0);
 
+    /* Guarda la búsqueda en curso para poder cancelarla si llega una más nueva
+       antes de que responda: sin esto, una respuesta lenta puede pisar el
+       resultado de una búsqueda posterior más rápida. */
+    const controladorRef = useRef<AbortController | null>(null);
+
     const handleOnSearch = async (e?: React.FormEvent) => {
         e?.preventDefault();
+
+        controladorRef.current?.abort();
+        const controlador = new AbortController();
+        controladorRef.current = controlador;
+
         setCargando(true);
 
         if (busqueda.length <= 0) {
@@ -20,13 +31,14 @@ const BuscadorCartas = () => {
         }
 
         try {
-            const resultado = await buscarCartas(busqueda);
+            const resultado = await buscarCartas(busqueda, undefined, controlador.signal);
             setResultados(resultado.data);
             setTotalCartas(resultado.total_cards);
         } catch (error) {
+            if ((error as Error).name === "AbortError") return; // cancelada por una búsqueda más nueva
             console.error("Error buscando la carta: ", error);
         } finally {
-            setCargando(false);
+            if (!controlador.signal.aborted) setCargando(false);
         }
     }
 
@@ -39,6 +51,10 @@ const BuscadorCartas = () => {
             clearTimeout(timeoutId);
         }
     }, [busqueda])
+
+    useEffect(() => {
+        return () => controladorRef.current?.abort();
+    }, [])
 
     return (
         <section className="w-full">
@@ -72,7 +88,7 @@ const BuscadorCartas = () => {
                         <CartaResumen
                             key={carta.id}
                             id={carta.id}
-                            nombre={carta.name}
+                            nombre={carta.printed_name ?? carta.name}
                             imagen={carta.image_uris?.normal}
                             expansion={carta.set_name}
                             numeroColeccion={carta.collector_number}
