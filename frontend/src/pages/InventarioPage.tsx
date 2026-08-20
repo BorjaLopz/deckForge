@@ -4,6 +4,7 @@ import { ajustarCantidadInventario, eliminarDeInventarioService, obtenerInventar
 import CartaResumen from "../components/CartaResumen";
 import BotonBusquedaAvanzada from "../components/BotonBusquedaAvanzada";
 import PanelColapsable from "../components/PanelColapsable";
+import ImportarInventario from "../components/ImportarInventario";
 import type { CartaInventario } from "../types/inventario";
 import { COLORES_DISPONIBLES, COLOR_HEX, TIPOS_DISPONIBLES, RAREZA_LABEL } from "../constants/cartas";
 
@@ -127,9 +128,11 @@ const InventarioPage = () => {
     return (
         <div className="relative">
             <div className="max-w-5xl mx-auto px-8 py-6">
-                <h1 className="text-2xl font-heading font-medium text-noc-text mb-6">
+                <h1 className="text-2xl font-heading font-medium text-noc-text mb-3">
                     Mi inventario
                 </h1>
+
+                <ImportarInventario onImportado={() => setFiltrosAplicados({ ...filtrosAplicados })} />
 
                 <form
                     onSubmit={(e) => { e.preventDefault(); aplicarFiltros(); }}

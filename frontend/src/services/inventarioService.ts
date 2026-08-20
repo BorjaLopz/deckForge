@@ -1,5 +1,5 @@
 import { BACKEND_BASE_URL } from "../utils/utils";
-import type { CartaInventario } from "../types/inventario";
+import type { CartaInventario, ResultadoImportacion } from "../types/inventario";
 
 export const obtenerInventario = async (accessToken: string,
     filtros?: {
@@ -55,6 +55,24 @@ export const ajustarCantidadInventario = async (accessToken: string, cartaId: nu
 
     if (!response.ok) {
         throw new Error("Error ajustando la cantidad en el inventario");
+    }
+
+    const data = await response.json();
+    return data.data;
+}
+
+export const importarInventario = async (accessToken: string, texto: string): Promise<ResultadoImportacion> => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/inventario/importar`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ texto })
+    })
+
+    if (!response.ok) {
+        throw new Error("Error importando el inventario");
     }
 
     const data = await response.json();

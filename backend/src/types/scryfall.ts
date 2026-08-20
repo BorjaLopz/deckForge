@@ -15,3 +15,23 @@ export interface ExpansionScryfall {
     set_type: string;
     icon_svg_uri: string | null;
 }
+
+/* Carta bruta de Scryfall (solo los campos que usamos al importar/adaptar) */
+export interface CartaScryfallBruta {
+    id: string;
+    name: string;
+    printed_name?: string;
+    set: string;
+    collector_number: string;
+    lang: string;
+    type_line: string;
+    colors?: string[];
+    cmc?: number;
+    mana_cost?: string;
+    power?: string;
+    toughness?: string;
+    oracle_text?: string;
+    printed_text?: string;
+    rarity?: string;
+    image_uris?: { normal?: string };
+}

@@ -89,22 +89,22 @@ const insertarTiposDeCarta = async (client: PoolClient, cartaId: number, tiposCa
 
 }
 
-const agregarCartaAInventario = async (client: PoolClient, cartaId: number, userId: string) => {
-    const sql = `INSERT INTO inventario (carta_id, usuario_id) VALUES ($1, $2)
-                 ON CONFLICT (usuario_id, carta_id) DO UPDATE SET cantidad_poseida = inventario.cantidad_poseida + 1
+const agregarCartaAInventario = async (client: PoolClient, cartaId: number, userId: string, cantidad: number) => {
+    const sql = `INSERT INTO inventario (carta_id, usuario_id, cantidad_poseida) VALUES ($1, $2, $3)
+                 ON CONFLICT (usuario_id, carta_id) DO UPDATE SET cantidad_poseida = inventario.cantidad_poseida + $3
                  RETURNING cantidad_poseida`;
 
-    const resultado = await client.query(sql, [cartaId, userId]);
+    const resultado = await client.query(sql, [cartaId, userId, cantidad]);
 
     return resultado.rows[0].cantidad_poseida;
 }
 
-export const guardarCartaEnInventario = async (carta: CartaParaInventario, userId: string) => {
+export const guardarCartaEnInventario = async (carta: CartaParaInventario, userId: string, cantidad: number = 1) => {
     return ejecutarEnTransaccion(async (client) => {
         const cartaId = await insertarOAsignarCarta(client, carta);
         await insertarColoresCarta(client, cartaId, carta.colores);
         await insertarTiposDeCarta(client, cartaId, carta.tipos);
-        await agregarCartaAInventario(client, cartaId, userId);
+        await agregarCartaAInventario(client, cartaId, userId, cantidad);
 
         return cartaId;
     });

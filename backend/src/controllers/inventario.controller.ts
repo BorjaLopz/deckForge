@@ -3,6 +3,9 @@ import { buildError, buildResponse } from "../utils/response";
 import { actualizarCantidadInventario, eliminarCartaDeInventario, guardarCartaEnInventario, obtenerInventario } from "../services/inventario.services";
 import { RequestAutenticado } from "../types/auth";
 import { CartaParaInventario } from "../types/inventario";
+import { construirCartaParaInventario, resolverCartaPreferentementeEnEspanol } from "../utils/importarDesdeScryfall";
+
+const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const agregarInventario = async (req: RequestAutenticado, res: Response) => {
     try {
@@ -74,6 +77,52 @@ export const ajustarCantidad = async (req: RequestAutenticado, res: Response) =>
     } catch (error) {
         console.error("Error ajustando cantidad. ", error);
         buildError(res, "No se pudo ajustar la cantidad", "INVENTARIO_UPDATE_ERROR", 500)
+    }
+}
+
+/* Formato de línea: "<cantidad> <nombre de la carta>", ej. "4 Lightning Bolt".
+   Cada carta es una petición a Scryfall (con pausa entre una y otra para
+   respetar su rate limit), así que una lista larga tarda su tiempo. */
+export const importarInventario = async (req: RequestAutenticado, res: Response) => {
+    try {
+        const { texto } = req.body;
+
+        if (!texto || typeof texto !== "string") {
+            return buildError(res, "Falta el texto a importar", "INVENTARIO_IMPORTAR_TEXTO_REQUERIDO", 400);
+        }
+
+        const lineas = texto.split("\n").map((l) => l.trim()).filter(Boolean);
+
+        const importadas: { linea: string; nombre: string; cantidad: number }[] = [];
+        const fallidas: { linea: string; motivo: string }[] = [];
+
+        for (const linea of lineas) {
+            const match = linea.match(/^(\d+)\s+(.+)$/);
+
+            if (!match) {
+                fallidas.push({ linea, motivo: 'Formato no reconocido (esperado: "cantidad nombre")' });
+                continue;
+            }
+
+            const cantidad = Number(match[1]);
+            const nombreBuscado = match[2]!.trim();
+
+            try {
+                const cartaBruta = await resolverCartaPreferentementeEnEspanol(nombreBuscado);
+                const cartaParaInventario = construirCartaParaInventario(cartaBruta);
+                await guardarCartaEnInventario(cartaParaInventario, req.usuarioId, cantidad);
+                importadas.push({ linea, nombre: cartaParaInventario.nombre, cantidad });
+            } catch (error) {
+                fallidas.push({ linea, motivo: error instanceof Error ? error.message : "Error desconocido" });
+            }
+
+            await esperar(100);
+        }
+
+        buildResponse(res, { importadas, fallidas });
+    } catch (error) {
+        console.error("Error importando inventario: ", error);
+        buildError(res, "No se pudo importar el inventario", "INVENTARIO_IMPORTAR_ERROR", 500);
     }
 }
 
