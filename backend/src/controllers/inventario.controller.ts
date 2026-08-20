@@ -1,11 +1,13 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { buildError, buildResponse } from "../utils/response";
 import { actualizarCantidadInventario, eliminarCartaDeInventario, guardarCartaEnInventario, obtenerInventario } from "../services/inventario.services";
+import { RequestAutenticado } from "../types/auth";
+import { CartaParaInventario } from "../types/inventario";
 
-export const agregarInventario = async (req: Request, res: Response) => {
+export const agregarInventario = async (req: RequestAutenticado, res: Response) => {
     try {
-        const carta = req.body;
-        const cartaId = await guardarCartaEnInventario(carta, (req as any).usuarioId);
+        const carta: CartaParaInventario = req.body;
+        const cartaId = await guardarCartaEnInventario(carta, req.usuarioId);
         buildResponse(res, { cartaId });
     } catch (error) {
         console.error("Error al guardar la carta en inventario", error);
@@ -13,9 +15,9 @@ export const agregarInventario = async (req: Request, res: Response) => {
     }
 }
 
-export const listarInventario = async (req: Request, res: Response) => {
+export const listarInventario = async (req: RequestAutenticado, res: Response) => {
     try {
-        const usuarioId = (req as any).usuarioId;
+        const usuarioId = req.usuarioId;
 
         const nombre = req.query.nombre ? String(req.query.nombre) : undefined;
 
@@ -33,6 +35,10 @@ export const listarInventario = async (req: Request, res: Response) => {
         const manaValueMaxRaw = req.query.manaValueMax !== undefined ? Number(req.query.manaValueMax) : undefined;
         const manaValueMax = manaValueMaxRaw !== undefined && !isNaN(manaValueMaxRaw) ? manaValueMaxRaw : undefined;
 
+        const ordenarPor = req.query.ordenarPor ? String(req.query.ordenarPor) : undefined;
+        const direccion = req.query.direccion ? String(req.query.direccion) : undefined;
+        const rareza = req.query.rareza ? String(req.query.rareza) : undefined;
+
         const resultado = await obtenerInventario(usuarioId,
             {
                 nombre,
@@ -40,7 +46,10 @@ export const listarInventario = async (req: Request, res: Response) => {
                 colores,
                 tipo,
                 manaValueMax,
-                manaValueMin
+                manaValueMin,
+                rareza,
+                ordenarPor,
+                direccion
             }
         );
         buildResponse(res, resultado);
@@ -50,9 +59,9 @@ export const listarInventario = async (req: Request, res: Response) => {
     }
 }
 
-export const ajustarCantidad = async (req: Request, res: Response) => {
+export const ajustarCantidad = async (req: RequestAutenticado, res: Response) => {
     try {
-        const usuarioId = (req as any).usuarioId;
+        const usuarioId = req.usuarioId;
         const { cartaId } = req.params;
         const { delta } = req.body;
 
@@ -68,9 +77,9 @@ export const ajustarCantidad = async (req: Request, res: Response) => {
     }
 }
 
-export const eliminarDeInventario = async (req: Request, res: Response) => {
+export const eliminarDeInventario = async (req: RequestAutenticado, res: Response) => {
     try {
-        const usuarioId = (req as any).usuarioId;
+        const usuarioId = req.usuarioId;
         const { cartaId } = req.params;
         await eliminarCartaDeInventario(usuarioId, Number(cartaId));
         buildResponse(res, { eliminado: true });

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { supabase } from "../db/supabase"
 import { buildError } from "../utils/response"
+import { RequestAutenticado } from "../types/auth"
 
 export const verificarAuth = async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
@@ -17,7 +18,7 @@ export const verificarAuth = async (req: Request, res: Response, next: NextFunct
         return buildError(res, "Token inválido o expirado", "AUTH_TOKEN_INVALID", 401)
     }
 
-    (req as any).usuarioId = data.user.id;
+    (req as RequestAutenticado).usuarioId = data.user.id;
 
     next();
 
