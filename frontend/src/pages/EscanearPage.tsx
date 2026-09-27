@@ -4,10 +4,19 @@ import * as Tesseract from "tesseract.js";
 import { obtenerExpansiones, reconocerCarta } from "../services/cartasService";
 import { calcularMarcoGuia, mejorarParaOcr, parsearSetYNumero, recortarInfoColeccion, RELACION_CARTA } from "../utils/reconocimientoCarta";
 
-/* `focusMode` no está en el estándar MediaTrackConstraintSet de TS todavía,
-   aunque varios navegadores ya lo soportan como extensión. */
+/* `focusMode`/`torch` no están en el estándar MediaTrackConstraintSet de TS
+   todavía, aunque varios navegadores ya los soportan como extensión (Android
+   Chrome sí, iOS Safari no soporta `torch` vía navegador). */
 interface RestriccionConEnfoque extends MediaTrackConstraintSet {
     focusMode?: "continuous" | "manual" | "single-shot";
+}
+
+interface RestriccionConLinterna extends MediaTrackConstraintSet {
+    torch?: boolean;
+}
+
+interface CapacidadesConLinterna extends MediaTrackCapabilities {
+    torch?: boolean;
 }
 
 type Aviso = { tipo: "buscando" | "encontrada" | "error"; texto: string; imagenUrl?: string | null };
@@ -20,16 +29,30 @@ const EscanearPage = () => {
     const pausadoRef = useRef(false); // true tras encontrar una carta, hasta que se navega o se cancela
     const cuentaAtrasRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const codigosSetRef = useRef<Set<string> | null>(null);
+    const pistaVideoRef = useRef<MediaStreamTrack | null>(null);
     const navigate = useNavigate();
 
     const [errorCamara, setErrorCamara] = useState<string | null>(null);
     const [leyendo, setLeyendo] = useState(false);
     const [aviso, setAviso] = useState<Aviso | null>(null);
     const [cuentaAtras, setCuentaAtras] = useState<number | null>(null);
+    const [linternaDisponible, setLinternaDisponible] = useState(false);
+    const [linternaActiva, setLinternaActiva] = useState(false);
 
     const [manualAbierto, setManualAbierto] = useState(false);
     const [setManual, setSetManual] = useState("");
     const [numeroManual, setNumeroManual] = useState("");
+
+    const alternarLinterna = async () => {
+        const nuevoEstado = !linternaActiva;
+        try {
+            const restriccion: RestriccionConLinterna = { torch: nuevoEstado };
+            await pistaVideoRef.current?.applyConstraints({ advanced: [restriccion] });
+            setLinternaActiva(nuevoEstado);
+        } catch (err) {
+            console.error("Error activando la linterna: ", err);
+        }
+    };
 
     /* TODO: quitar este panel de logs — es temporal, para depurar en el móvil
        donde no hay devtools a mano. */
@@ -67,16 +90,21 @@ const EscanearPage = () => {
                     videoRef.current.srcObject = stream;
                 }
 
+                const [pista] = stream.getVideoTracks();
+                pistaVideoRef.current = pista ?? null;
+
                 // Enfoque continuo si el navegador lo soporta: no es parte
                 // del estándar MediaTrackConstraints todavía, de ahí el tipo aparte.
                 // Best-effort — si falla, seguimos con el enfoque por defecto.
                 try {
-                    const [pista] = stream.getVideoTracks();
                     const restriccion: RestriccionConEnfoque = { focusMode: "continuous" };
                     await pista?.applyConstraints({ advanced: [restriccion] });
                 } catch {
                     // el navegador no lo soporta, no pasa nada
                 }
+
+                const capacidades = pista?.getCapabilities?.() as CapacidadesConLinterna | undefined;
+                setLinternaDisponible(Boolean(capacidades?.torch));
 
                 registrar("Cámara conectada.");
             } catch (err) {
@@ -286,6 +314,20 @@ const EscanearPage = () => {
                                 aspectRatio: RELACION_CARTA,
                             }}
                         />
+
+                        {linternaDisponible && (
+                            <button
+                                type="button"
+                                onClick={alternarLinterna}
+                                aria-label={linternaActiva ? "Apagar linterna" : "Encender linterna"}
+                                aria-pressed={linternaActiva}
+                                className={`absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full border transition-colors ${linternaActiva ? "bg-noc-accent text-noc-bg border-noc-accent" : "bg-noc-surface/90 text-noc-neutral-500 border-noc-divider hover:text-noc-text"}`}
+                            >
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                                    <path d="M5 1H9L8 5H10L5.5 13L6.5 7.5H4L5 1Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" fill={linternaActiva ? "currentColor" : "none"} />
+                                </svg>
+                            </button>
+                        )}
 
                         {/* Notificación flotante sobre la propia cámara */}
                         {aviso && (
