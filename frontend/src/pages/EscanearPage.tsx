@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Tesseract from "tesseract.js";
 import { reconocerCarta } from "../services/cartasService";
-import { calcularMarcoGuia, parsearSetYNumero, recortarInfoColeccion, RELACION_CARTA } from "../utils/reconocimientoCarta";
+import { calcularMarcoGuia, mejorarParaOcr, parsearSetYNumero, recortarInfoColeccion, RELACION_CARTA } from "../utils/reconocimientoCarta";
 
 /* `focusMode` no está en el estándar MediaTrackConstraintSet de TS todavía,
    aunque varios navegadores ya lo soportan como extensión. */
@@ -17,22 +17,33 @@ const EscanearPage = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const workerRef = useRef<Tesseract.Worker | null>(null);
     const procesandoRef = useRef(false); // evita solapar intentos del bucle automático
-    const pausadoRef = useRef(false); // true tras encontrar una carta, hasta que se navega a su ficha
+    const pausadoRef = useRef(false); // true tras encontrar una carta, hasta que se navega o se cancela
+    const cuentaAtrasRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const navigate = useNavigate();
 
     const [errorCamara, setErrorCamara] = useState<string | null>(null);
     const [leyendo, setLeyendo] = useState(false);
     const [aviso, setAviso] = useState<Aviso | null>(null);
+    const [cuentaAtras, setCuentaAtras] = useState<number | null>(null);
 
     const [manualAbierto, setManualAbierto] = useState(false);
     const [setManual, setSetManual] = useState("");
     const [numeroManual, setNumeroManual] = useState("");
+
+    /* TODO: quitar este panel de logs — es temporal, para depurar en el móvil
+       donde no hay devtools a mano. */
+    const [logs, setLogs] = useState<string[]>([]);
+    const registrar = (mensaje: string) => {
+        console.log("[escanear]", mensaje);
+        setLogs((prev) => [...prev, mensaje]);
+    };
 
     useEffect(() => {
         let stream: MediaStream | null = null;
 
         const iniciarCamara = async () => {
             try {
+                registrar("Pidiendo acceso a la cámara...");
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: "environment",
@@ -54,8 +65,10 @@ const EscanearPage = () => {
                 } catch {
                     // el navegador no lo soporta, no pasa nada
                 }
+
+                registrar("Cámara conectada.");
             } catch (err) {
-                console.error("Error accediendo a la cámara: ", err);
+                registrar(`Error de cámara: ${err instanceof Error ? err.message : String(err)}`);
                 setErrorCamara("No se pudo acceder a la cámara. Revisa los permisos del navegador.");
             }
         };
@@ -70,25 +83,57 @@ const EscanearPage = () => {
     useEffect(() => {
         return () => {
             workerRef.current?.terminate();
+            if (cuentaAtrasRef.current) clearInterval(cuentaAtrasRef.current);
         };
     }, []);
 
     const obtenerWorker = async (): Promise<Tesseract.Worker> => {
         if (!workerRef.current) {
+            registrar("Cargando motor de OCR (primera vez descarga datos, tarda más)...");
             workerRef.current = await Tesseract.createWorker(["eng", "spa"]);
+            registrar("Motor de OCR listo.");
         }
         return workerRef.current;
+    };
+
+    const cancelar = () => {
+        if (cuentaAtrasRef.current) clearInterval(cuentaAtrasRef.current);
+        cuentaAtrasRef.current = null;
+        setCuentaAtras(null);
+        setAviso(null);
+        pausadoRef.current = false;
+        registrar("Cancelado por el usuario, sigue escaneando.");
     };
 
     const buscarPorSetYNumero = async (set: string, numero: string) => {
         pausadoRef.current = true;
         setAviso({ tipo: "buscando", texto: `Buscando ${set.toUpperCase()} #${numero}...` });
+        registrar(`Consultando a Scryfall: set="${set}" numero="${numero}"...`);
 
         try {
             const carta = await reconocerCarta(set, numero);
+            registrar(`Resuelto: "${carta.nombre}" (scryfallId=${carta.scryfallId})`);
             setAviso({ tipo: "encontrada", texto: carta.nombre, imagenUrl: carta.imagenUrl });
-            setTimeout(() => navigate(`/carta/${carta.scryfallId}`), 700);
+
+            // Ventana para cancelar: el OCR de set/número aún falla bastante,
+            // mejor dar 3s con opción de frenar que saltar a la carta
+            // equivocada sin avisar.
+            let restante = 3;
+            setCuentaAtras(restante);
+            cuentaAtrasRef.current = setInterval(() => {
+                restante -= 1;
+                if (restante <= 0) {
+                    if (cuentaAtrasRef.current) clearInterval(cuentaAtrasRef.current);
+                    cuentaAtrasRef.current = null;
+                    setCuentaAtras(null);
+                    navigate(`/carta/${carta.scryfallId}`);
+                } else {
+                    setCuentaAtras(restante);
+                }
+            }, 1000);
         } catch (err) {
+            const mensaje = err instanceof Error ? err.message : String(err);
+            registrar(`Error: ${mensaje}`);
             console.error("Error reconociendo la carta: ", err);
             setAviso({ tipo: "error", texto: `No se encontró ${set.toUpperCase()} #${numero}` });
             pausadoRef.current = false; // dígito mal leído probablemente: seguimos intentando
@@ -115,7 +160,7 @@ const EscanearPage = () => {
             contexto.drawImage(video, 0, 0);
 
             const marco = calcularMarcoGuia(video.videoWidth, video.videoHeight);
-            const recorteInfo = recortarInfoColeccion(canvas, marco);
+            const recorteInfo = mejorarParaOcr(recortarInfoColeccion(canvas, marco));
 
             const worker = await obtenerWorker();
 
@@ -125,8 +170,10 @@ const EscanearPage = () => {
                 tessedit_char_whitelist: "0123456789/•ABCDEFGHIJKLMNOPQRSTUVWXYZ "
             });
             const resultadoInfo = await worker.recognize(recorteInfo);
+            registrar(`OCR set/número (crudo): "${resultadoInfo.data.text.trim()}"`);
 
             const { set, numero } = parsearSetYNumero(resultadoInfo.data.text);
+            registrar(`Parseado -> set: ${set ?? "(ninguno)"} | número: ${numero ?? "(ninguno)"}`);
 
             if (set && numero) {
                 await buscarPorSetYNumero(set, numero);
@@ -137,6 +184,7 @@ const EscanearPage = () => {
                 }, 2500);
             }
         } catch (err) {
+            registrar(`Error: ${err instanceof Error ? err.message : String(err)}`);
             console.error("Error leyendo la carta: ", err);
         } finally {
             setLeyendo(false);
@@ -145,7 +193,7 @@ const EscanearPage = () => {
     };
 
     /* Bucle de fondo: reintenta la lectura cada ~1.2s. Se pausa en cuanto
-       encuentra una carta (hasta que se navega a su ficha) y se para del
+       encuentra una carta (hasta que se navega o se cancela) y se para del
        todo si falla la cámara. */
     useEffect(() => {
         if (errorCamara) return;
@@ -214,9 +262,18 @@ const EscanearPage = () => {
                                 {aviso.imagenUrl && (
                                     <img src={aviso.imagenUrl} alt={aviso.texto} className="w-10 rounded-md shrink-0" />
                                 )}
-                                <p className={`text-sm min-w-0 truncate ${aviso.tipo === "error" ? "text-red-400" : aviso.tipo === "encontrada" ? "text-noc-text font-medium" : "text-noc-neutral-500"}`}>
+                                <p className={`flex-1 min-w-0 text-sm truncate ${aviso.tipo === "error" ? "text-red-400" : aviso.tipo === "encontrada" ? "text-noc-text font-medium" : "text-noc-neutral-500"}`}>
                                     {aviso.tipo === "encontrada" ? `¡Encontrada! ${aviso.texto}` : aviso.texto}
                                 </p>
+                                {cuentaAtras !== null && (
+                                    <button
+                                        type="button"
+                                        onClick={cancelar}
+                                        className="shrink-0 bg-transparent border border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors rounded-lg px-3 py-1.5 text-xs font-medium"
+                                    >
+                                        Cancelar ({cuentaAtras})
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -262,6 +319,22 @@ const EscanearPage = () => {
                         </form>
                     )}
                 </>
+            )}
+
+            {/* TODO: quitar — panel de debug temporal para depurar en el móvil */}
+            {logs.length > 0 && (
+                <div className="mt-6 bg-noc-bg border border-noc-divider rounded-md p-3">
+                    <p className="text-[10px] tracking-widest uppercase text-noc-accent mb-2">
+                        Debug (temporal)
+                    </p>
+                    <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                        {logs.map((linea, i) => (
+                            <p key={i} className="text-xs text-noc-neutral-500 break-words">
+                                {linea}
+                            </p>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
     );
