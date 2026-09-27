@@ -15,6 +15,7 @@ const EscanearPage = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const workerRef = useRef<Tesseract.Worker | null>(null);
+    const procesandoRef = useRef(false); // evita solapar intentos del bucle automático
     const navigate = useNavigate();
 
     const [errorCamara, setErrorCamara] = useState<string | null>(null);
@@ -93,15 +94,18 @@ const EscanearPage = () => {
         return workerRef.current;
     };
 
-    const capturarYLeer = async () => {
+    const capturarYLeer = async (automatico = false) => {
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        if (!video || !canvas || leyendo) return;
+        if (!video || !canvas || procesandoRef.current) return;
 
+        procesandoRef.current = true;
         setLeyendo(true);
         setError(null);
-        setResultado(null);
-        setCampos(null);
+        if (!automatico) {
+            setResultado(null);
+            setCampos(null);
+        }
 
         try {
             registrar(`Capturando fotograma (${video.videoWidth}x${video.videoHeight})...`);
@@ -141,9 +145,17 @@ const EscanearPage = () => {
             const { set, numero } = parsearSetYNumero(resultadoInfo.data.text);
             registrar(`Parseado -> nombre: "${nombre}" | set: ${set ?? "(ninguno)"} | número: ${numero ?? "(ninguno)"}`);
 
-            // Siempre pasamos a la pantalla de revisión, aunque el OCR no
-            // haya leído nada: mejor dejar corregir/rellenar a mano que
-            // dejar al usuario sin salida.
+            const setYNumeroOk = Boolean(set && numero);
+            const nombrePlausible = nombre.length >= 4;
+
+            if (automatico && !setYNumeroOk && !nombrePlausible) {
+                // Todavía no hay nada legible: seguimos en la cámara, el
+                // bucle de fondo lo reintentará solo, sin molestar al usuario.
+                registrar("Nada legible todavía, reintentando...");
+                return;
+            }
+
+            registrar(automatico ? "Carta detectada automáticamente." : "Captura manual.");
             setCampos({ nombre, set: set ?? "", numero: numero ?? "" });
 
             // Con set+número detectados, el backend hace lookup exacto y el
@@ -151,17 +163,22 @@ const EscanearPage = () => {
             // título salga sucio) — no hace falta esperar a que el usuario
             // pulse el botón. Sin ambos, el camino es el fuzzy por nombre,
             // mucho menos fiable con texto sucio: ahí sí espera revisión manual.
-            if (set && numero) {
+            if (setYNumeroOk) {
                 registrar("Set y número detectados: buscando automáticamente.");
-                await buscarPorValores(nombre || set, set, numero);
+                await buscarPorValores(nombre || set!, set, numero);
             }
         } catch (err) {
             const mensaje = err instanceof Error ? err.message : String(err);
             registrar(`Error: ${mensaje}`);
             console.error("Error leyendo la carta: ", err);
-            setError("No se pudo procesar la foto. Inténtalo de nuevo.");
+            // En modo automático no plantamos un error visible por cada
+            // intento fallido de fondo — solo si el usuario pidió la captura.
+            if (!automatico) {
+                setError("No se pudo procesar la foto. Inténtalo de nuevo.");
+            }
         } finally {
             setLeyendo(false);
+            procesandoRef.current = false;
         }
     };
 
@@ -191,6 +208,32 @@ const EscanearPage = () => {
         buscarPorValores(campos.nombre, campos.set, campos.numero);
     };
 
+    /* Bucle de fondo: mientras no haya nada detectado (campos === null),
+       reintenta la lectura cada ~1.2s. Se para solo al detectar algo
+       plausible (capturarYLeer se encarga de decidir eso) o al salir de la
+       pantalla de cámara; se reactiva al volver con "Volver a la cámara". */
+    useEffect(() => {
+        if (errorCamara || campos) return;
+
+        let activo = true;
+
+        const ciclo = async () => {
+            if (!activo) return;
+            await capturarYLeer(true);
+            if (activo) {
+                setTimeout(ciclo, 1200);
+            }
+        };
+
+        const id = setTimeout(ciclo, 1200);
+
+        return () => {
+            activo = false;
+            clearTimeout(id);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [errorCamara, campos]);
+
     const volverACapturar = () => {
         setCampos(null);
         setResultado(null);
@@ -203,7 +246,7 @@ const EscanearPage = () => {
                 Escanear carta
             </h1>
             <p className="text-sm text-noc-neutral-500 mb-6">
-                Encuadra la carta dentro del marco y pulsa el botón. Cuanta más luz y menos ángulo, mejor sale.
+                Encuadra la carta dentro del marco — se lee sola en cuanto haya algo legible. Cuanta más luz y menos ángulo, mejor sale.
             </p>
 
             {errorCamara ? (
@@ -231,13 +274,18 @@ const EscanearPage = () => {
 
                     <canvas ref={canvasRef} className="hidden" />
 
+                    <div className="flex items-center gap-2 mt-3 text-xs text-noc-neutral-500">
+                        <span className={`w-1.5 h-1.5 rounded-full bg-noc-accent ${leyendo ? "animate-pulse" : "opacity-40"}`} aria-hidden="true" />
+                        {leyendo ? "Leyendo..." : "Escaneando automáticamente — encuadra la carta y espera."}
+                    </div>
+
                     <button
                         type="button"
-                        onClick={capturarYLeer}
+                        onClick={() => capturarYLeer(false)}
                         disabled={leyendo}
-                        className="w-full mt-4 bg-transparent border border-noc-accent text-noc-accent hover:bg-noc-accent-900 disabled:opacity-50 transition-colors rounded-lg py-2.5 text-sm font-medium"
+                        className="w-full mt-2 bg-transparent border border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 disabled:opacity-50 transition-colors rounded-lg py-2 text-sm font-medium"
                     >
-                        {leyendo ? "Leyendo..." : "Capturar y leer"}
+                        Capturar ahora
                     </button>
 
                     {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
