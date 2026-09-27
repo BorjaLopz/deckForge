@@ -5,6 +5,8 @@ import CartaResumen from "../components/CartaResumen";
 import SelectorExpansion from "../components/SelectorExpansion";
 import BotonBusquedaAvanzada from "../components/BotonBusquedaAvanzada";
 import PanelColapsable from "../components/PanelColapsable";
+import SelectorVistaCartas from "../components/SelectorVistaCartas";
+import { useVistaTarjetas } from "../hooks/useVistaTarjetas";
 import type { CartaScryfall } from "../types/scryfall";
 import { COLORES_DISPONIBLES, COLOR_HEX, TIPOS_DISPONIBLES } from "../constants/cartas";
 
@@ -19,6 +21,7 @@ const ListadoCartasPage = () => {
     const [cargando, setCargando] = useState<boolean>(!resultadosPrevios);
     const [pagina, setPagina] = useState<number>(1);
     const [avanzadaAbierta, setAvanzadaAbierta] = useState<boolean>(false);
+    const { vista, setVista } = useVistaTarjetas();
 
     const [filtros, setFiltros] = useState({
         nombre: nombreInicial,
@@ -126,7 +129,10 @@ const ListadoCartasPage = () => {
                 <h1 className="text-2xl font-heading font-medium text-noc-text">
                     Resultados para "{filtrosAplicados.nombre}"
                 </h1>
-                <span className="text-sm text-noc-neutral-500">{resultados.length} cartas</span>
+                <div className="flex items-center gap-3">
+                    <span className="text-sm text-noc-neutral-500">{resultados.length} cartas</span>
+                    <SelectorVistaCartas vista={vista} onCambiar={setVista} />
+                </div>
             </div>
 
             <form
@@ -279,20 +285,37 @@ const ListadoCartasPage = () => {
                 </p>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6 mb-8">
-                {cartasPagina.map((carta) => (
-                    <CartaResumen
-                        key={carta.id}
-                        id={carta.id}
-                        nombre={carta.printed_name ?? carta.name}
-                        imagen={carta.image_uris?.large}
-                        expansion={carta.set.toUpperCase()}
-                        numeroColeccion={carta.collector_number}
-                        rareza={carta.rarity}
-                        variante="cuadricula"
-                    />
-                ))}
-            </div>
+            {vista === "cuadricula" ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6 mb-8">
+                    {cartasPagina.map((carta) => (
+                        <CartaResumen
+                            key={carta.id}
+                            id={carta.id}
+                            nombre={carta.printed_name ?? carta.name}
+                            imagen={carta.image_uris?.large}
+                            expansion={carta.set.toUpperCase()}
+                            numeroColeccion={carta.collector_number}
+                            rareza={carta.rarity}
+                            variante="cuadricula"
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="bg-noc-surface rounded-lg border border-noc-divider overflow-hidden mt-6 mb-8">
+                    {cartasPagina.map((carta) => (
+                        <CartaResumen
+                            key={carta.id}
+                            id={carta.id}
+                            nombre={carta.printed_name ?? carta.name}
+                            imagen={carta.image_uris?.normal}
+                            expansion={carta.set.toUpperCase()}
+                            numeroColeccion={carta.collector_number}
+                            rareza={carta.rarity}
+                            variante="lista"
+                        />
+                    ))}
+                </div>
+            )}
 
             <div className="flex justify-center items-center gap-2">
                 <button

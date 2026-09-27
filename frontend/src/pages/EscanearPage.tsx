@@ -29,20 +29,11 @@ const EscanearPage = () => {
        verdad final. */
     const [campos, setCampos] = useState<{ nombre: string; set: string; numero: string } | null>(null);
 
-    /* TODO: quitar este panel de logs — es temporal, para depurar en el móvil
-       donde no hay devtools a mano. */
-    const [logs, setLogs] = useState<string[]>([]);
-    const registrar = (mensaje: string) => {
-        console.log("[escanear]", mensaje);
-        setLogs((prev) => [...prev, mensaje]);
-    };
-
     useEffect(() => {
         let stream: MediaStream | null = null;
 
         const iniciarCamara = async () => {
             try {
-                registrar("Pidiendo acceso a la cámara...");
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: "environment",
@@ -55,7 +46,7 @@ const EscanearPage = () => {
                 }
 
                 // Enfoque continuo si el navegador lo soporta: no es parte
-                // del estándar MediaTrackConstraints todavía, de ahí el `any`.
+                // del estándar MediaTrackConstraints todavía, de ahí el tipo aparte.
                 // Best-effort — si falla, seguimos con el enfoque por defecto.
                 try {
                     const [pista] = stream.getVideoTracks();
@@ -64,10 +55,8 @@ const EscanearPage = () => {
                 } catch {
                     // el navegador no lo soporta, no pasa nada
                 }
-
-                registrar("Cámara conectada.");
             } catch (err) {
-                registrar(`Error de cámara: ${err instanceof Error ? err.message : String(err)}`);
+                console.error("Error accediendo a la cámara: ", err);
                 setErrorCamara("No se pudo acceder a la cámara. Revisa los permisos del navegador.");
             }
         };
@@ -87,9 +76,7 @@ const EscanearPage = () => {
 
     const obtenerWorker = async (): Promise<Tesseract.Worker> => {
         if (!workerRef.current) {
-            registrar("Cargando motor de OCR (primera vez descarga datos, tarda más)...");
             workerRef.current = await Tesseract.createWorker(["eng", "spa"]);
-            registrar("Motor de OCR listo.");
         }
         return workerRef.current;
     };
@@ -108,7 +95,6 @@ const EscanearPage = () => {
         }
 
         try {
-            registrar(`Capturando fotograma (${video.videoWidth}x${video.videoHeight})...`);
             const contexto = canvas.getContext("2d");
             if (!contexto) throw new Error("No se pudo procesar la imagen");
 
@@ -125,25 +111,20 @@ const EscanearPage = () => {
             // Un nombre de carta nunca lleva dígitos ni símbolos: si se le
             // cuela borde del coste de maná, que Tesseract ni se plantee
             // leerlo como número — solo letras (con acentos) y puntuación básica.
-            registrar("Leyendo título...");
             await worker.setParameters({
                 tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚÜÑáéíóúüñÆæ'-,."
             });
             const resultadoTitulo = await worker.recognize(recorteTitulo);
-            registrar(`OCR título (crudo): "${resultadoTitulo.data.text.trim()}"`);
 
             // Aquí es al revés: solo dígitos, letras mayúsculas (código de
             // set) y los separadores que realmente aparecen ("/", "•").
-            registrar("Leyendo set/número...");
             await worker.setParameters({
                 tessedit_char_whitelist: "0123456789/•ABCDEFGHIJKLMNOPQRSTUVWXYZ "
             });
             const resultadoInfo = await worker.recognize(recorteInfo);
-            registrar(`OCR set/número (crudo): "${resultadoInfo.data.text.trim()}"`);
 
             const nombre = resultadoTitulo.data.text.trim().split("\n")[0]?.trim() ?? "";
             const { set, numero } = parsearSetYNumero(resultadoInfo.data.text);
-            registrar(`Parseado -> nombre: "${nombre}" | set: ${set ?? "(ninguno)"} | número: ${numero ?? "(ninguno)"}`);
 
             const setYNumeroOk = Boolean(set && numero);
             const nombrePlausible = nombre.length >= 4;
@@ -151,11 +132,9 @@ const EscanearPage = () => {
             if (automatico && !setYNumeroOk && !nombrePlausible) {
                 // Todavía no hay nada legible: seguimos en la cámara, el
                 // bucle de fondo lo reintentará solo, sin molestar al usuario.
-                registrar("Nada legible todavía, reintentando...");
                 return;
             }
 
-            registrar(automatico ? "Carta detectada automáticamente." : "Captura manual.");
             setCampos({ nombre, set: set ?? "", numero: numero ?? "" });
 
             // Con set+número detectados, el backend hace lookup exacto y el
@@ -164,12 +143,9 @@ const EscanearPage = () => {
             // pulse el botón. Sin ambos, el camino es el fuzzy por nombre,
             // mucho menos fiable con texto sucio: ahí sí espera revisión manual.
             if (setYNumeroOk) {
-                registrar("Set y número detectados: buscando automáticamente.");
                 await buscarPorValores(nombre || set!, set, numero);
             }
         } catch (err) {
-            const mensaje = err instanceof Error ? err.message : String(err);
-            registrar(`Error: ${mensaje}`);
             console.error("Error leyendo la carta: ", err);
             // En modo automático no plantamos un error visible por cada
             // intento fallido de fondo — solo si el usuario pidió la captura.
@@ -189,13 +165,9 @@ const EscanearPage = () => {
         setError(null);
 
         try {
-            registrar(`Consultando a Scryfall: nombre="${nombre}" set="${set ?? ""}" numero="${numero ?? ""}"...`);
             const carta = await reconocerCarta(nombre.trim(), set?.trim() || undefined, numero?.trim() || undefined);
-            registrar(`Resuelto: "${carta.nombre}" (scryfallId=${carta.scryfallId})`);
             setResultado(carta);
         } catch (err) {
-            const mensaje = err instanceof Error ? err.message : String(err);
-            registrar(`Error: ${mensaje}`);
             console.error("Error reconociendo la carta: ", err);
             setError("No se encontró ninguna carta con ese nombre. Revisa cómo lo has escrito.");
         } finally {
@@ -249,48 +221,52 @@ const EscanearPage = () => {
                 Encuadra la carta dentro del marco — se lee sola en cuanto haya algo legible. Cuanta más luz y menos ángulo, mejor sale.
             </p>
 
-            {errorCamara ? (
-                <p className="text-sm text-red-400">{errorCamara}</p>
-            ) : !campos ? (
-                <>
-                    <div className="relative w-full rounded-lg overflow-hidden bg-black">
-                        <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-auto block"
-                        />
+            {errorCamara && <p className="text-sm text-red-400">{errorCamara}</p>}
 
-                        {/* Marco guía: misma proporción de carta real que se usa para recortar */}
-                        <div
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-noc-accent rounded-lg pointer-events-none"
-                            style={{
-                                width: "80%",
-                                aspectRatio: RELACION_CARTA,
-                            }}
-                        />
-                    </div>
+            {/* La cámara vive SIEMPRE montada, aunque no se vea: si se
+                desmonta al pasar a la revisión, se pierde la conexión con el
+                stream y "Volver a la cámara" la deja muerta (el efecto que
+                pide getUserMedia solo corre una vez, al montar la página). */}
+            <div hidden={!!errorCamara || !!campos}>
+                <div className="relative w-full rounded-lg overflow-hidden bg-black">
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-auto block"
+                    />
 
-                    <canvas ref={canvasRef} className="hidden" />
+                    {/* Marco guía: misma proporción de carta real que se usa para recortar */}
+                    <div
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-noc-accent rounded-lg pointer-events-none"
+                        style={{
+                            width: "80%",
+                            aspectRatio: RELACION_CARTA,
+                        }}
+                    />
+                </div>
 
-                    <div className="flex items-center gap-2 mt-3 text-xs text-noc-neutral-500">
-                        <span className={`w-1.5 h-1.5 rounded-full bg-noc-accent ${leyendo ? "animate-pulse" : "opacity-40"}`} aria-hidden="true" />
-                        {leyendo ? "Leyendo..." : "Escaneando automáticamente — encuadra la carta y espera."}
-                    </div>
+                <div className="flex items-center gap-2 mt-3 text-xs text-noc-neutral-500">
+                    <span className={`w-1.5 h-1.5 rounded-full bg-noc-accent ${leyendo ? "animate-pulse" : "opacity-40"}`} aria-hidden="true" />
+                    {leyendo ? "Leyendo..." : "Escaneando automáticamente — encuadra la carta y espera."}
+                </div>
 
-                    <button
-                        type="button"
-                        onClick={() => capturarYLeer(false)}
-                        disabled={leyendo}
-                        className="w-full mt-2 bg-transparent border border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 disabled:opacity-50 transition-colors rounded-lg py-2 text-sm font-medium"
-                    >
-                        Capturar ahora
-                    </button>
+                <button
+                    type="button"
+                    onClick={() => capturarYLeer(false)}
+                    disabled={leyendo}
+                    className="w-full mt-2 bg-transparent border border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 disabled:opacity-50 transition-colors rounded-lg py-2 text-sm font-medium"
+                >
+                    Capturar ahora
+                </button>
 
-                    {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
-                </>
-            ) : (
+                {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
+            </div>
+
+            <canvas ref={canvasRef} className="hidden" />
+
+            {!errorCamara && campos && (
                 <div className="flex flex-col gap-3">
                     <p className="text-xs text-noc-neutral-500">
                         Revisa y corrige lo que haga falta antes de buscar — el OCR es solo un punto de partida.
@@ -377,22 +353,6 @@ const EscanearPage = () => {
                             </div>
                         </div>
                     )}
-                </div>
-            )}
-
-            {/* TODO: quitar — panel de debug temporal para depurar en el móvil */}
-            {logs.length > 0 && (
-                <div className="mt-6 bg-noc-bg border border-noc-divider rounded-md p-3">
-                    <p className="text-[10px] tracking-widest uppercase text-noc-accent mb-2">
-                        Debug (temporal)
-                    </p>
-                    <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-                        {logs.map((linea, i) => (
-                            <p key={i} className="text-xs text-noc-neutral-500 break-words">
-                                {linea}
-                            </p>
-                        ))}
-                    </div>
                 </div>
             )}
         </div>

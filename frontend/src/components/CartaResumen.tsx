@@ -54,6 +54,13 @@ const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, rareza, 
                     ?
                 </div>
             )}
+            {rareza && (
+                <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: RAREZA_HEX[rareza] ?? "#8A8F98" }}
+                    aria-hidden="true"
+                />
+            )}
             <div className="flex flex-col min-w-0">
                 <span className="font-semibold text-sm text-noc-text truncate">
                     {nombre} <span className="font-normal text-noc-neutral-500">#{numeroColeccion}</span>

@@ -5,6 +5,9 @@ import CartaResumen from "../components/CartaResumen";
 import BotonBusquedaAvanzada from "../components/BotonBusquedaAvanzada";
 import PanelColapsable from "../components/PanelColapsable";
 import ImportarInventario from "../components/ImportarInventario";
+import ControlesCantidad from "../components/ControlesCantidad";
+import SelectorVistaCartas from "../components/SelectorVistaCartas";
+import { useVistaTarjetas } from "../hooks/useVistaTarjetas";
 import type { CartaInventario } from "../types/inventario";
 import { COLORES_DISPONIBLES, COLOR_HEX, TIPOS_DISPONIBLES, RAREZA_LABEL } from "../constants/cartas";
 
@@ -13,6 +16,7 @@ const InventarioPage = () => {
     const [cartas, setCartas] = useState<CartaInventario[]>([]);
     const [cargando, setCargando] = useState<boolean>(true);
     const [avanzadaAbierta, setAvanzadaAbierta] = useState<boolean>(false);
+    const { vista, setVista } = useVistaTarjetas();
 
     /* Estados para los filtros de inventario */
     const [filtros, setFiltros] = useState({
@@ -128,9 +132,13 @@ const InventarioPage = () => {
     return (
         <div className="relative">
             <div className="max-w-5xl mx-auto px-8 py-6">
-                <h1 className="text-2xl font-heading font-medium text-noc-text mb-3">
-                    Mi inventario
-                </h1>
+                <div className="flex items-center justify-between mb-3">
+                    <h1 className="text-2xl font-heading font-medium text-noc-text">
+                        Mi inventario
+                    </h1>
+
+                    <SelectorVistaCartas vista={vista} onCambiar={setVista} />
+                </div>
 
                 <ImportarInventario onImportado={() => setFiltrosAplicados({ ...filtrosAplicados })} />
 
@@ -287,57 +295,54 @@ const InventarioPage = () => {
                     </p>
                 )}
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {cartas.map((carta) => (
-                        <div key={carta.id} className="flex flex-col gap-2">
-                            <CartaResumen
-                                id={carta.scryfall_id}
-                                nombre={carta.nombre}
-                                expansion={carta.numero_carta ?? ""}
-                                imagen={carta.imagen_url ?? undefined}
-                                numeroColeccion={String(carta.cantidad_poseida)}
-                                rareza={carta.rareza ?? undefined}
-                                variante="cuadricula"
-                            />
-                            <div className="flex items-center justify-between bg-noc-surface border border-noc-divider rounded-lg px-1.5 py-1 shadow-[0px_1.2px_0px_rgba(0,0,0,0.03)]">
-                                <div className="flex items-center gap-0.5 bg-noc-bg rounded-full p-0.5">
-                                    <button
-                                        onClick={() => ajustarCantidad(carta.id, -1)}
-                                        aria-label="Quitar una unidad"
-                                        className="w-6 h-6 flex items-center justify-center rounded-full text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-noc-accent"
-                                    >
-                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                                            <path d="M1 5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                    <span className="w-6 text-center text-sm font-medium text-noc-text tabular-nums">
-                                        {carta.cantidad_poseida}
-                                    </span>
-                                    <button
-                                        onClick={() => ajustarCantidad(carta.id, 1)}
-                                        aria-label="Añadir una unidad"
-                                        className="w-6 h-6 flex items-center justify-center rounded-full text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-noc-accent"
-                                    >
-                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                                            <path d="M5 1V9M1 5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <button
-                                    onClick={() => eliminarCarta(carta.id)}
-                                    aria-label="Quitar carta del inventario"
-                                    className="w-7 h-7 flex items-center justify-center rounded-md text-noc-neutral-500 hover:text-red-400 hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-noc-accent"
-                                >
-                                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-                                        <path d="M2 3.5H11M5 3.5V2.5C5 2 5.4 1.5 6 1.5H7C7.6 1.5 8 2 8 2.5V3.5M4.5 3.5V10.5C4.5 11 4.9 11.5 5.5 11.5H7.5C8.1 11.5 8.5 11 8.5 10.5V3.5"
-                                            stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </button>
+                {vista === "cuadricula" ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {cartas.map((carta) => (
+                            <div key={carta.id} className="flex flex-col gap-2">
+                                <CartaResumen
+                                    id={carta.scryfall_id}
+                                    nombre={carta.nombre}
+                                    expansion={carta.numero_carta ?? ""}
+                                    imagen={carta.imagen_url ?? undefined}
+                                    numeroColeccion={String(carta.cantidad_poseida)}
+                                    rareza={carta.rareza ?? undefined}
+                                    variante="cuadricula"
+                                />
+                                <ControlesCantidad
+                                    cantidad={carta.cantidad_poseida}
+                                    onDecrementar={() => ajustarCantidad(carta.id, -1)}
+                                    onIncrementar={() => ajustarCantidad(carta.id, 1)}
+                                    onEliminar={() => eliminarCarta(carta.id)}
+                                />
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        {cartas.map((carta) => (
+                            <div key={carta.id} className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <CartaResumen
+                                        id={carta.scryfall_id}
+                                        nombre={carta.nombre}
+                                        expansion={carta.numero_carta ?? ""}
+                                        imagen={carta.imagen_url ?? undefined}
+                                        numeroColeccion={String(carta.cantidad_poseida)}
+                                        rareza={carta.rareza ?? undefined}
+                                        variante="lista"
+                                    />
+                                </div>
+                                <ControlesCantidad
+                                    cantidad={carta.cantidad_poseida}
+                                    onDecrementar={() => ajustarCantidad(carta.id, -1)}
+                                    onIncrementar={() => ajustarCantidad(carta.id, 1)}
+                                    onEliminar={() => eliminarCarta(carta.id)}
+                                    className="shrink-0"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
