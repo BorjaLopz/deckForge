@@ -118,11 +118,22 @@ const EscanearPage = () => {
 
             const worker = await obtenerWorker();
 
+            // Un nombre de carta nunca lleva dígitos ni símbolos: si se le
+            // cuela borde del coste de maná, que Tesseract ni se plantee
+            // leerlo como número — solo letras (con acentos) y puntuación básica.
             registrar("Leyendo título...");
+            await worker.setParameters({
+                tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚÜÑáéíóúüñÆæ'-,."
+            });
             const resultadoTitulo = await worker.recognize(recorteTitulo);
             registrar(`OCR título (crudo): "${resultadoTitulo.data.text.trim()}"`);
 
+            // Aquí es al revés: solo dígitos, letras mayúsculas (código de
+            // set) y los separadores que realmente aparecen ("/", "•").
             registrar("Leyendo set/número...");
+            await worker.setParameters({
+                tessedit_char_whitelist: "0123456789/•ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+            });
             const resultadoInfo = await worker.recognize(recorteInfo);
             registrar(`OCR set/número (crudo): "${resultadoInfo.data.text.trim()}"`);
 
@@ -134,6 +145,16 @@ const EscanearPage = () => {
             // haya leído nada: mejor dejar corregir/rellenar a mano que
             // dejar al usuario sin salida.
             setCampos({ nombre, set: set ?? "", numero: numero ?? "" });
+
+            // Con set+número detectados, el backend hace lookup exacto y el
+            // nombre deja de ser decisivo (por eso acierta aunque el OCR del
+            // título salga sucio) — no hace falta esperar a que el usuario
+            // pulse el botón. Sin ambos, el camino es el fuzzy por nombre,
+            // mucho menos fiable con texto sucio: ahí sí espera revisión manual.
+            if (set && numero) {
+                registrar("Set y número detectados: buscando automáticamente.");
+                await buscarPorValores(nombre || set, set, numero);
+            }
         } catch (err) {
             const mensaje = err instanceof Error ? err.message : String(err);
             registrar(`Error: ${mensaje}`);
@@ -144,15 +165,15 @@ const EscanearPage = () => {
         }
     };
 
-    const buscarCarta = async () => {
-        if (!campos || !campos.nombre.trim() || buscando) return;
+    const buscarPorValores = async (nombre: string, set?: string, numero?: string) => {
+        if (!nombre.trim() || buscando) return;
 
         setBuscando(true);
         setError(null);
 
         try {
-            registrar(`Consultando a Scryfall: nombre="${campos.nombre}" set="${campos.set}" numero="${campos.numero}"...`);
-            const carta = await reconocerCarta(campos.nombre.trim(), campos.set.trim() || undefined, campos.numero.trim() || undefined);
+            registrar(`Consultando a Scryfall: nombre="${nombre}" set="${set ?? ""}" numero="${numero ?? ""}"...`);
+            const carta = await reconocerCarta(nombre.trim(), set?.trim() || undefined, numero?.trim() || undefined);
             registrar(`Resuelto: "${carta.nombre}" (scryfallId=${carta.scryfallId})`);
             setResultado(carta);
         } catch (err) {
@@ -163,6 +184,11 @@ const EscanearPage = () => {
         } finally {
             setBuscando(false);
         }
+    };
+
+    const buscarCarta = () => {
+        if (!campos) return;
+        buscarPorValores(campos.nombre, campos.set, campos.numero);
     };
 
     const volverACapturar = () => {
