@@ -33,25 +33,28 @@ const recortarCanvas = (origen: HTMLCanvasElement, x: number, y: number, ancho: 
     return recorte;
 };
 
-/* Banda del título (nombre de la carta), parte superior del marco. */
+/* Banda del título (nombre de la carta), parte superior del marco.
+   Se corta antes de llegar al ~25% derecho, donde va el coste de maná —
+   si no, el OCR mezcla símbolos/números de maná con el nombre. */
 export const recortarTitulo = (fotograma: HTMLCanvasElement, marco: MarcoGuia): HTMLCanvasElement =>
     recortarCanvas(
         fotograma,
-        marco.x + marco.alto * 0.04,
+        marco.x + marco.alto * 0.05,
         marco.y + marco.alto * 0.04,
-        marco.ancho - marco.alto * 0.08,
+        marco.ancho * 0.72,
         marco.alto * 0.08
     );
 
-/* Esquina inferior izquierda: número de colección + código de set.
-   Letra diminuta, mucho menos fiable que el título — es un bonus. */
+/* Esquina inferior izquierda: número de colección + código de set. Son dos
+   líneas ("177/281 M" y "DMU • ES" debajo) — el recorte tiene que llegar
+   hasta el borde inferior para no cortar la segunda línea. */
 export const recortarInfoColeccion = (fotograma: HTMLCanvasElement, marco: MarcoGuia): HTMLCanvasElement =>
     recortarCanvas(
         fotograma,
         marco.x + marco.alto * 0.02,
-        marco.y + marco.alto * 0.90,
-        marco.ancho * 0.35,
-        marco.alto * 0.06
+        marco.y + marco.alto * 0.86,
+        marco.ancho * 0.4,
+        marco.alto * 0.12
     );
 
 /* Mejor esfuerzo sobre texto OCR ruidoso: primer número de 1-4 cifras (el de
@@ -61,7 +64,7 @@ export const parsearSetYNumero = (textoOcr: string): { set?: string; numero?: st
     const numeroMatch = textoOcr.match(/(\d{1,4})\s*\/\s*\d{1,4}/) ?? textoOcr.match(/\b(\d{1,4})\b/);
     const numero = numeroMatch ? String(Number(numeroMatch[1])) : undefined;
 
-    const setMatch = textoOcr.match(/\b([A-Z]{3,5})\b/);
+    const setMatch = textoOcr.match(/\b([A-Z]{3,5})\b/i);
     const set = setMatch ? setMatch[1].toLowerCase() : undefined;
 
     return { set, numero };
