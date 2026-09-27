@@ -33,9 +33,20 @@ const EscanearPage = () => {
     /* TODO: quitar este panel de logs — es temporal, para depurar en el móvil
        donde no hay devtools a mano. */
     const [logs, setLogs] = useState<string[]>([]);
+    const [logCopiado, setLogCopiado] = useState(false);
     const registrar = (mensaje: string) => {
         console.log("[escanear]", mensaje);
         setLogs((prev) => [...prev, mensaje]);
+    };
+
+    const copiarLog = async () => {
+        try {
+            await navigator.clipboard.writeText(logs.join("\n"));
+            setLogCopiado(true);
+            setTimeout(() => setLogCopiado(false), 2000);
+        } catch (err) {
+            console.error("Error copiando el log: ", err);
+        }
     };
 
     useEffect(() => {
@@ -147,6 +158,14 @@ const EscanearPage = () => {
         const video = videoRef.current;
         const canvas = canvasRef.current;
         if (!video || !canvas || procesandoRef.current || pausadoRef.current) return;
+
+        // El primer intento del bucle puede disparar antes de que el vídeo
+        // tenga dimensiones reales (el permiso de cámara puede tardar más que
+        // el margen de 1.2s) — sin esto, drawImage revienta con un canvas 0x0.
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            registrar("Cámara aún sin fotograma listo, reintentando...");
+            return;
+        }
 
         procesandoRef.current = true;
         setLeyendo(true);
@@ -324,9 +343,18 @@ const EscanearPage = () => {
             {/* TODO: quitar — panel de debug temporal para depurar en el móvil */}
             {logs.length > 0 && (
                 <div className="mt-6 bg-noc-bg border border-noc-divider rounded-md p-3">
-                    <p className="text-[10px] tracking-widest uppercase text-noc-accent mb-2">
-                        Debug (temporal)
-                    </p>
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] tracking-widest uppercase text-noc-accent">
+                            Debug (temporal)
+                        </p>
+                        <button
+                            type="button"
+                            onClick={copiarLog}
+                            className="text-xs text-noc-neutral-500 hover:text-noc-text transition-colors"
+                        >
+                            {logCopiado ? "¡Copiado!" : "Copiar log"}
+                        </button>
+                    </div>
                     <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
                         {logs.map((linea, i) => (
                             <p key={i} className="text-xs text-noc-neutral-500 break-words">

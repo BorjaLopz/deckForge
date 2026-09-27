@@ -33,16 +33,18 @@ const recortarCanvas = (origen: HTMLCanvasElement, x: number, y: number, ancho: 
     return recorte;
 };
 
-/* Esquina inferior izquierda: número de colección + código de set. Son dos
-   líneas ("177/281 M" y "DMU • ES" debajo) — el recorte tiene que llegar
-   hasta el borde inferior para no cortar la segunda línea. */
+/* Esquina inferior izquierda: número de colección + código de set ("177/281 M"
+   y "DMU • ES" debajo). Justo por debajo va el copyright y el nombre del
+   ilustrador — si el recorte llega hasta el borde los mete también, y esas
+   letras (p.ej. "ALEXANDER") contaminan la búsqueda del código de set. Nos
+   quedamos solo con las 2 líneas de arriba. */
 export const recortarInfoColeccion = (fotograma: HTMLCanvasElement, marco: MarcoGuia): HTMLCanvasElement =>
     recortarCanvas(
         fotograma,
         marco.x + marco.alto * 0.02,
         marco.y + marco.alto * 0.86,
         marco.ancho * 0.4,
-        marco.alto * 0.12
+        marco.alto * 0.06
     );
 
 /* La letra de set/número es minúscula y sale "lavada" (poco contraste) al
