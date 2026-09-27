@@ -62,7 +62,7 @@ const BuscadorCartas = () => {
             <form onSubmit={handleOnSearch} className="flex items-stretch bg-noc-surface rounded-lg shadow-lg overflow-hidden border border-noc-divider">
                 <select
                     disabled
-                    className="bg-transparent border-none border-r border-noc-divider px-3 text-sm text-noc-neutral-500 focus:outline-none cursor-not-allowed"
+                    className="hidden sm:block bg-transparent border-none border-r border-noc-divider px-3 text-sm text-noc-neutral-500 focus:outline-none cursor-not-allowed shrink-0"
                 >
                     <option>Magic</option>
                 </select>
@@ -71,11 +71,11 @@ const BuscadorCartas = () => {
                     placeholder="Busca una carta por nombre..."
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    className="flex-1 bg-transparent border-none px-4 py-3 text-sm text-noc-text placeholder:text-noc-neutral-500 focus:outline-none"
+                    className="flex-1 min-w-0 bg-transparent border-none px-3 sm:px-4 py-3 text-sm text-noc-text placeholder:text-noc-neutral-500 focus:outline-none"
                 />
                 <button
                     type="submit"
-                    className="bg-transparent border-l border-noc-divider text-noc-accent hover:bg-noc-accent-900 transition-colors px-5 text-sm font-medium"
+                    className="bg-transparent border-l border-noc-divider text-noc-accent hover:bg-noc-accent-900 transition-colors px-3 sm:px-5 text-sm font-medium shrink-0"
                 >
                     Buscar
                 </button>
@@ -84,7 +84,7 @@ const BuscadorCartas = () => {
                     onClick={() => navigate("/escanear")}
                     aria-label="Escanear carta con la cámara"
                     title="Escanear carta"
-                    className="bg-transparent border-l border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors px-4 shrink-0"
+                    className="bg-transparent border-l border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors px-3 shrink-0"
                 >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                         <path d="M2 5.5C2 4.67157 2.67157 4 3.5 4H5L5.8 2.6C5.98 2.23 6.36 2 6.77 2H9.23C9.64 2 10.02 2.23 10.2 2.6L11 4H12.5C13.3284 4 14 4.67157 14 5.5V11.5C14 12.3284 13.3284 13 12.5 13H3.5C2.67157 13 2 12.3284 2 11.5V5.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
