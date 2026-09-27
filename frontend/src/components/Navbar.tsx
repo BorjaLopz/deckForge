@@ -18,6 +18,9 @@ const Navbar = () => {
                     <Link to="/mazos" className="text-noc-text hover:text-noc-accent transition-colors">
                         Mazos
                     </Link>
+                    <Link to="/escanear" className="text-noc-text hover:text-noc-accent transition-colors">
+                        Escanear
+                    </Link>
                 </>
             )}
 

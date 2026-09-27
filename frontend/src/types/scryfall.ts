@@ -38,6 +38,12 @@ export interface ListaScryfall {
     data: CartaScryfall[];
 }
 
+export interface ResultadoReconocimiento {
+    scryfallId: string;
+    nombre: string;
+    imagenUrl: string | null;
+}
+
 export interface ExpansionScryfall {
     code: string;
     name: string;

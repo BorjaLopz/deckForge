@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { buildError, buildResponse } from "../utils/response";
 import { translator } from "../utils/translator";
 import { ExpansionScryfall, SetBrutoScryfall } from "../types/scryfall";
+import { obtenerCartaExactaPreferentementeEnEspanol, resolverCartaPreferentementeEnEspanol } from "../utils/scryfallCliente";
 
 /* Los sets de Scryfall no cambian cada minuto: cacheamos en memoria un día
    entero en vez de pegarle a su API en cada carga del selector. */
@@ -165,6 +166,39 @@ export const obtenerPorId = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Error obteniendo la carta: ", error);
         buildError(res, "No se pudo obtener la carta", "SCRYFALL_FETCH_ERROR", 500);
+    }
+};
+
+/* Usado por el escáner de cámara: nombre siempre viene del OCR del título,
+   set+numero son opcionales (OCR de la esquina inferior, mucho menos fiable).
+   Si vienen, intentamos el lookup exacto primero; si no, o si falla, caemos
+   al mismo fuzzy-por-nombre que usa el import masivo. */
+export const reconocerCarta = async (req: Request, res: Response) => {
+    try {
+        const { nombre, set, numero } = req.body;
+
+        if (!nombre || typeof nombre !== "string") {
+            return buildError(res, "Falta el nombre reconocido", "RECONOCER_NOMBRE_REQUERIDO", 400);
+        }
+
+        let carta = null;
+
+        if (set && numero) {
+            carta = await obtenerCartaExactaPreferentementeEnEspanol(String(set).toLowerCase(), String(numero));
+        }
+
+        if (!carta) {
+            carta = await resolverCartaPreferentementeEnEspanol(nombre);
+        }
+
+        buildResponse(res, {
+            scryfallId: carta.id,
+            nombre: carta.printed_name ?? carta.name,
+            imagenUrl: carta.image_uris?.normal ?? null
+        });
+    } catch (error) {
+        console.error("Error reconociendo la carta: ", error);
+        buildError(res, "No se pudo reconocer la carta", "RECONOCER_ERROR", 500);
     }
 };
 

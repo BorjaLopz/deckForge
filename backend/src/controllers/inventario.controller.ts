@@ -3,7 +3,8 @@ import { buildError, buildResponse } from "../utils/response";
 import { actualizarCantidadInventario, eliminarCartaDeInventario, guardarCartaEnInventario, obtenerInventario } from "../services/inventario.services";
 import { RequestAutenticado } from "../types/auth";
 import { CartaParaInventario } from "../types/inventario";
-import { construirCartaParaInventario, resolverCartaPreferentementeEnEspanol } from "../utils/importarDesdeScryfall";
+import { construirCartaParaInventario } from "../utils/importarDesdeScryfall";
+import { resolverCartaPreferentementeEnEspanol } from "../utils/scryfallCliente";
 
 const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

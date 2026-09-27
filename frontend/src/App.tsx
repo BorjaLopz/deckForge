@@ -9,6 +9,7 @@ import NotFoundPage from './pages/NotFoundPage'
 import RutaProtegida from './routing/RutaProtegida'
 import Navbar from './components/Navbar'
 import ListadoCartasPage from './pages/ListadoCartasPage'
+import EscanearPage from './pages/EscanearPage'
 
 function App() {
 
@@ -27,6 +28,11 @@ function App() {
         <Route path="/mazos" element={
           <RutaProtegida>
             <MazosPage />
+          </RutaProtegida>
+        } />
+        <Route path="/escanear" element={
+          <RutaProtegida>
+            <EscanearPage />
           </RutaProtegida>
         } />
         <Route path="/carta/:scryfallId" element={<InformationCardPage />} />

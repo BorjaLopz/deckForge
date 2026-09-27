@@ -1,6 +1,6 @@
 import { adaptarCartaParaInventario } from "../utils/adaptarCartaParaInventario";
 import { BACKEND_BASE_URL } from "../utils/utils"
-import type { CartaScryfall, ExpansionScryfall, ListaScryfall } from "../types/scryfall";
+import type { CartaScryfall, ExpansionScryfall, ListaScryfall, ResultadoReconocimiento } from "../types/scryfall";
 
 export const buscarCartas = async (
     nombre: string,
@@ -75,6 +75,25 @@ export const agregarAInventario = async (carta: CartaScryfall, accessToken: stri
 
     if (!response.ok) {
         throw new Error("Error añadiendo la carta al inventario");
+    }
+
+    const data = await response.json();
+    return data.data;
+};
+
+export const reconocerCarta = async (
+    nombre: string,
+    set?: string,
+    numero?: string
+): Promise<ResultadoReconocimiento> => {
+    const response = await fetch(BACKEND_BASE_URL + `/api/cartas/reconocer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, set, numero })
+    });
+
+    if (!response.ok) {
+        throw new Error("Error reconociendo la carta");
     }
 
     const data = await response.json();
