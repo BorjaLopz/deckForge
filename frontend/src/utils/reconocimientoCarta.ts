@@ -52,7 +52,7 @@ export const recortarInfoColeccion = (fotograma: HTMLCanvasElement, marco: Marco
    capturarla desde el móvil. Ampliamos y estiramos el contraste al rango de
    luminosidad real del recorte — sin asumir texto claro sobre oscuro o al
    revés, porque el borde de la carta cambia de color según el mazo. */
-export const mejorarParaOcr = (recorte: HTMLCanvasElement, escala = 3): HTMLCanvasElement => {
+export const mejorarParaOcr = (recorte: HTMLCanvasElement, escala = 5): HTMLCanvasElement => {
     const mejorado = document.createElement("canvas");
     mejorado.width = recorte.width * escala;
     mejorado.height = recorte.height * escala;
