@@ -33,18 +33,6 @@ const recortarCanvas = (origen: HTMLCanvasElement, x: number, y: number, ancho: 
     return recorte;
 };
 
-/* Banda del título (nombre de la carta), parte superior del marco.
-   Se corta antes de llegar al ~25% derecho, donde va el coste de maná —
-   si no, el OCR mezcla símbolos/números de maná con el nombre. */
-export const recortarTitulo = (fotograma: HTMLCanvasElement, marco: MarcoGuia): HTMLCanvasElement =>
-    recortarCanvas(
-        fotograma,
-        marco.x + marco.alto * 0.05,
-        marco.y + marco.alto * 0.04,
-        marco.ancho * 0.72,
-        marco.alto * 0.08
-    );
-
 /* Esquina inferior izquierda: número de colección + código de set. Son dos
    líneas ("177/281 M" y "DMU • ES" debajo) — el recorte tiene que llegar
    hasta el borde inferior para no cortar la segunda línea. */

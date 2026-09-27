@@ -82,14 +82,14 @@ export const agregarAInventario = async (carta: CartaScryfall, accessToken: stri
 };
 
 export const reconocerCarta = async (
-    nombre: string,
     set?: string,
-    numero?: string
+    numero?: string,
+    nombre?: string
 ): Promise<ResultadoReconocimiento> => {
     const response = await fetch(BACKEND_BASE_URL + `/api/cartas/reconocer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, set, numero })
+        body: JSON.stringify({ set, numero, nombre })
     });
 
     if (!response.ok) {

@@ -169,25 +169,29 @@ export const obtenerPorId = async (req: Request, res: Response) => {
     }
 };
 
-/* Usado por el escáner de cámara: nombre siempre viene del OCR del título,
-   set+numero son opcionales (OCR de la esquina inferior, mucho menos fiable).
-   Si vienen, intentamos el lookup exacto primero; si no, o si falla, caemos
-   al mismo fuzzy-por-nombre que usa el import masivo. */
+/* Usado por el escáner de cámara: set+numero (OCR de la esquina inferior)
+   basta para un lookup exacto, sin ambigüedad — el nombre ya no hace falta
+   para eso. Si no hay set+numero, o el lookup exacto no encuentra nada,
+   nombre sirve de único fallback para el fuzzy-por-nombre del import masivo. */
 export const reconocerCarta = async (req: Request, res: Response) => {
     try {
         const { nombre, set, numero } = req.body;
+        const tieneSetYNumero = Boolean(set && numero);
 
-        if (!nombre || typeof nombre !== "string") {
-            return buildError(res, "Falta el nombre reconocido", "RECONOCER_NOMBRE_REQUERIDO", 400);
+        if (!tieneSetYNumero && (!nombre || typeof nombre !== "string")) {
+            return buildError(res, "Falta el nombre, o el set y número, de la carta", "RECONOCER_DATOS_REQUERIDOS", 400);
         }
 
         let carta = null;
 
-        if (set && numero) {
+        if (tieneSetYNumero) {
             carta = await obtenerCartaExactaPreferentementeEnEspanol(String(set).toLowerCase(), String(numero));
         }
 
         if (!carta) {
+            if (!nombre || typeof nombre !== "string") {
+                return buildError(res, "No se encontró ninguna carta con ese set y número", "RECONOCER_NO_ENCONTRADA", 404);
+            }
             carta = await resolverCartaPreferentementeEnEspanol(nombre);
         }
 
