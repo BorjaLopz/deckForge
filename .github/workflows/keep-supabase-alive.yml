@@ -1,0 +1,26 @@
+name: Keep Supabase Alive
+
+# Supabase free tier pausa el proyecto tras ~7 días sin actividad, y a
+# diferencia de Render, no se reactiva solo con volver a entrar a la app —
+# hay que restaurarlo a mano desde el dashboard. Esto hace una lectura real
+# (mínima) cada pocos días para que nunca llegue a pausarse.
+on:
+  schedule:
+    - cron: "0 8 * * 1,4" # lunes y jueves a las 08:00 UTC
+  workflow_dispatch: {} # permite lanzarlo a mano desde la pestaña Actions
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consulta mínima a Supabase (anon key, protegida por RLS)
+        run: |
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://lvaqvmlwyhysztjrrzql.supabase.co/rest/v1/colores?select=id&limit=1" \
+            -H "apikey: sb_publishable_tBnOz0YSb0m6UprXBhQvwA_hhKq0a4Z" \
+            -H "Authorization: Bearer sb_publishable_tBnOz0YSb0m6UprXBhQvwA_hhKq0a4Z")
+          echo "Respuesta de Supabase: $http_code"
+          if [ "$http_code" -ge 400 ]; then
+            echo "Supabase respondió con error $http_code — revisa si el proyecto sigue activo"
+            exit 1
+          fi
