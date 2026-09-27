@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Tesseract from "tesseract.js";
-import { reconocerCarta } from "../services/cartasService";
+import { obtenerExpansiones, reconocerCarta } from "../services/cartasService";
 import { calcularMarcoGuia, mejorarParaOcr, parsearSetYNumero, recortarInfoColeccion, RELACION_CARTA } from "../utils/reconocimientoCarta";
 
 /* `focusMode` no está en el estándar MediaTrackConstraintSet de TS todavía,
@@ -19,6 +19,7 @@ const EscanearPage = () => {
     const procesandoRef = useRef(false); // evita solapar intentos del bucle automático
     const pausadoRef = useRef(false); // true tras encontrar una carta, hasta que se navega o se cancela
     const cuentaAtrasRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const codigosSetRef = useRef<Set<string> | null>(null);
     const navigate = useNavigate();
 
     const [errorCamara, setErrorCamara] = useState<string | null>(null);
@@ -89,6 +90,17 @@ const EscanearPage = () => {
         return () => {
             stream?.getTracks().forEach((track) => track.stop());
         };
+    }, []);
+
+    /* Lista real de códigos de set, para filtrar el ruido del OCR contra
+       algo real en vez de aceptar cualquier bloque de 3-5 letras. */
+    useEffect(() => {
+        obtenerExpansiones()
+            .then((expansiones) => {
+                codigosSetRef.current = new Set(expansiones.map((e) => e.code.toLowerCase()));
+                registrar(`Cargados ${expansiones.length} códigos de set para validar.`);
+            })
+            .catch((err) => console.error("Error cargando expansiones: ", err));
     }, []);
 
     useEffect(() => {
@@ -191,7 +203,7 @@ const EscanearPage = () => {
             const resultadoInfo = await worker.recognize(recorteInfo);
             registrar(`OCR set/número (crudo): "${resultadoInfo.data.text.trim()}"`);
 
-            const { set, numero } = parsearSetYNumero(resultadoInfo.data.text);
+            const { set, numero } = parsearSetYNumero(resultadoInfo.data.text, codigosSetRef.current ?? undefined);
             registrar(`Parseado -> set: ${set ?? "(ninguno)"} | número: ${numero ?? "(ninguno)"}`);
 
             if (set && numero) {

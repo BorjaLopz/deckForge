@@ -34,17 +34,18 @@ const recortarCanvas = (origen: HTMLCanvasElement, x: number, y: number, ancho: 
 };
 
 /* Esquina inferior izquierda: número de colección + código de set ("177/281 M"
-   y "DMU • ES" debajo). Justo por debajo va el copyright y el nombre del
-   ilustrador — si el recorte llega hasta el borde los mete también, y esas
-   letras (p.ej. "ALEXANDER") contaminan la búsqueda del código de set. Nos
-   quedamos solo con las 2 líneas de arriba. */
+   y "DMU • ES" debajo), y justo por debajo el copyright + nombre del
+   ilustrador. Probamos a recortar más ajustado para excluir esas líneas de
+   ruido, pero cortaba las letras reales por la mitad y empeoraba todo — con
+   este alto (0.12) caben las 4 líneas holgadas; el ruido del ilustrador lo
+   filtramos en parsearSetYNumero contra la lista real de sets, no aquí. */
 export const recortarInfoColeccion = (fotograma: HTMLCanvasElement, marco: MarcoGuia): HTMLCanvasElement =>
     recortarCanvas(
         fotograma,
         marco.x + marco.alto * 0.02,
         marco.y + marco.alto * 0.86,
         marco.ancho * 0.4,
-        marco.alto * 0.06
+        marco.alto * 0.12
     );
 
 /* La letra de set/número es minúscula y sale "lavada" (poco contraste) al
@@ -88,14 +89,29 @@ export const mejorarParaOcr = (recorte: HTMLCanvasElement, escala = 3): HTMLCanv
 };
 
 /* Mejor esfuerzo sobre texto OCR ruidoso: primer número de 1-4 cifras (el de
-   colección suele venir como "0211/280") y primer bloque de 3-5 letras
-   mayúsculas (el código de set). Cualquiera de los dos puede no aparecer. */
-export const parsearSetYNumero = (textoOcr: string): { set?: string; numero?: string } => {
+   colección suele venir como "0211/280") y código de set. Con `codigosValidos`
+   (los ~1047 códigos reales de Scryfall) probamos cada bloque de 3-5 letras
+   contra la lista real, en vez de aceptar el primero que salga — así
+   "ALEXANDER" (nombre del ilustrador colado en el recorte) no cuela solo por
+   parecer un código. Sin la lista, cae al primer bloque encontrado. */
+export const parsearSetYNumero = (
+    textoOcr: string,
+    codigosValidos?: Set<string>
+): { set?: string; numero?: string } => {
     const numeroMatch = textoOcr.match(/(\d{1,4})\s*\/\s*\d{1,4}/) ?? textoOcr.match(/\b(\d{1,4})\b/);
     const numero = numeroMatch ? String(Number(numeroMatch[1])) : undefined;
 
-    const setMatch = textoOcr.match(/\b([A-Z]{3,5})\b/i);
-    const set = setMatch ? setMatch[1].toLowerCase() : undefined;
+    let set: string | undefined;
+
+    if (codigosValidos) {
+        const candidatos = textoOcr.match(/[A-Za-z]{3,5}/g) ?? [];
+        set = candidatos.map((c) => c.toLowerCase()).find((c) => codigosValidos.has(c));
+    }
+
+    if (!set) {
+        const setMatch = textoOcr.match(/\b([A-Z]{3,5})\b/i);
+        set = setMatch ? setMatch[1].toLowerCase() : undefined;
+    }
 
     return { set, numero };
 };
