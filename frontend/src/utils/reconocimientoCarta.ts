@@ -104,11 +104,14 @@ export const parsearSetYNumero = (
     let set: string | undefined;
 
     if (codigosValidos) {
+        // Con la lista cargada, si ningún candidato es un código real NO caemos
+        // al modo sin validar — eso era el bug: aceptaba el primer bloque de
+        // letras igualmente ("onao", "ela"...) y anulaba la validación entera.
         const candidatos = textoOcr.match(/[A-Za-z]{3,5}/g) ?? [];
         set = candidatos.map((c) => c.toLowerCase()).find((c) => codigosValidos.has(c));
-    }
-
-    if (!set) {
+    } else {
+        // Sin lista (todavía no ha cargado, o falló la petición): mejor
+        // esfuerzo sin validar, como antes.
         const setMatch = textoOcr.match(/\b([A-Z]{3,5})\b/i);
         set = setMatch ? setMatch[1].toLowerCase() : undefined;
     }
