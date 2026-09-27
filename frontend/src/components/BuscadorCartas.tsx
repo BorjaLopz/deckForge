@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { buscarCartas } from "../services/cartasService";
 import CartaResumen from "./CartaResumen";
 import type { CartaScryfall } from "../types/scryfall";
 
 const BuscadorCartas = () => {
+    const navigate = useNavigate();
     const [busqueda, setBusqueda] = useState<string>("");
     const [resultados, setResultados] = useState<CartaScryfall[]>([]);
     const [cargando, setCargando] = useState<boolean>(false);
@@ -77,6 +78,18 @@ const BuscadorCartas = () => {
                     className="bg-transparent border-l border-noc-divider text-noc-accent hover:bg-noc-accent-900 transition-colors px-5 text-sm font-medium"
                 >
                     Buscar
+                </button>
+                <button
+                    type="button"
+                    onClick={() => navigate("/escanear")}
+                    aria-label="Escanear carta con la cámara"
+                    title="Escanear carta"
+                    className="bg-transparent border-l border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors px-4 shrink-0"
+                >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M2 5.5C2 4.67157 2.67157 4 3.5 4H5L5.8 2.6C5.98 2.23 6.36 2 6.77 2H9.23C9.64 2 10.02 2.23 10.2 2.6L11 4H12.5C13.3284 4 14 4.67157 14 5.5V11.5C14 12.3284 13.3284 13 12.5 13H3.5C2.67157 13 2 12.3284 2 11.5V5.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                        <circle cx="8" cy="8.5" r="2.3" stroke="currentColor" strokeWidth="1.2" />
+                    </svg>
                 </button>
             </form>
 

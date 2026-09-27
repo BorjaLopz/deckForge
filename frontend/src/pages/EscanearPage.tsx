@@ -54,31 +54,11 @@ const EscanearPage = () => {
         }
     };
 
-    /* TODO: quitar este panel de logs — es temporal, para depurar en el móvil
-       donde no hay devtools a mano. */
-    const [logs, setLogs] = useState<string[]>([]);
-    const [logCopiado, setLogCopiado] = useState(false);
-    const registrar = (mensaje: string) => {
-        console.log("[escanear]", mensaje);
-        setLogs((prev) => [...prev, mensaje]);
-    };
-
-    const copiarLog = async () => {
-        try {
-            await navigator.clipboard.writeText(logs.join("\n"));
-            setLogCopiado(true);
-            setTimeout(() => setLogCopiado(false), 2000);
-        } catch (err) {
-            console.error("Error copiando el log: ", err);
-        }
-    };
-
     useEffect(() => {
         let stream: MediaStream | null = null;
 
         const iniciarCamara = async () => {
             try {
-                registrar("Pidiendo acceso a la cámara...");
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: "environment",
@@ -105,10 +85,8 @@ const EscanearPage = () => {
 
                 const capacidades = pista?.getCapabilities?.() as CapacidadesConLinterna | undefined;
                 setLinternaDisponible(Boolean(capacidades?.torch));
-
-                registrar("Cámara conectada.");
             } catch (err) {
-                registrar(`Error de cámara: ${err instanceof Error ? err.message : String(err)}`);
+                console.error("Error accediendo a la cámara: ", err);
                 setErrorCamara("No se pudo acceder a la cámara. Revisa los permisos del navegador.");
             }
         };
@@ -126,7 +104,6 @@ const EscanearPage = () => {
         obtenerExpansiones()
             .then((expansiones) => {
                 codigosSetRef.current = new Set(expansiones.map((e) => e.code.toLowerCase()));
-                registrar(`Cargados ${expansiones.length} códigos de set para validar.`);
             })
             .catch((err) => console.error("Error cargando expansiones: ", err));
     }, []);
@@ -140,9 +117,7 @@ const EscanearPage = () => {
 
     const obtenerWorker = async (): Promise<Tesseract.Worker> => {
         if (!workerRef.current) {
-            registrar("Cargando motor de OCR (primera vez descarga datos, tarda más)...");
             workerRef.current = await Tesseract.createWorker(["eng", "spa"]);
-            registrar("Motor de OCR listo.");
         }
         return workerRef.current;
     };
@@ -153,17 +128,14 @@ const EscanearPage = () => {
         setCuentaAtras(null);
         setAviso(null);
         pausadoRef.current = false;
-        registrar("Cancelado por el usuario, sigue escaneando.");
     };
 
     const buscarPorSetYNumero = async (set: string, numero: string) => {
         pausadoRef.current = true;
         setAviso({ tipo: "buscando", texto: `Buscando ${set.toUpperCase()} #${numero}...` });
-        registrar(`Consultando a Scryfall: set="${set}" numero="${numero}"...`);
 
         try {
             const carta = await reconocerCarta(set, numero);
-            registrar(`Resuelto: "${carta.nombre}" (scryfallId=${carta.scryfallId})`);
             setAviso({ tipo: "encontrada", texto: carta.nombre, imagenUrl: carta.imagenUrl });
 
             // Ventana para cancelar: el OCR de set/número aún falla bastante,
@@ -183,8 +155,6 @@ const EscanearPage = () => {
                 }
             }, 1000);
         } catch (err) {
-            const mensaje = err instanceof Error ? err.message : String(err);
-            registrar(`Error: ${mensaje}`);
             console.error("Error reconociendo la carta: ", err);
             setAviso({ tipo: "error", texto: `No se encontró ${set.toUpperCase()} #${numero}` });
             pausadoRef.current = false; // dígito mal leído probablemente: seguimos intentando
@@ -203,7 +173,6 @@ const EscanearPage = () => {
         // tenga dimensiones reales (el permiso de cámara puede tardar más que
         // el margen de 1.2s) — sin esto, drawImage revienta con un canvas 0x0.
         if (video.videoWidth === 0 || video.videoHeight === 0) {
-            registrar("Cámara aún sin fotograma listo, reintentando...");
             return;
         }
 
@@ -229,10 +198,7 @@ const EscanearPage = () => {
                 tessedit_char_whitelist: "0123456789/•ABCDEFGHIJKLMNOPQRSTUVWXYZ "
             });
             const resultadoInfo = await worker.recognize(recorteInfo);
-            registrar(`OCR set/número (crudo): "${resultadoInfo.data.text.trim()}"`);
-
             const { set, numero } = parsearSetYNumero(resultadoInfo.data.text, codigosSetRef.current ?? undefined);
-            registrar(`Parseado -> set: ${set ?? "(ninguno)"} | número: ${numero ?? "(ninguno)"}`);
 
             if (set && numero) {
                 await buscarPorSetYNumero(set, numero);
@@ -243,7 +209,6 @@ const EscanearPage = () => {
                 }, 2500);
             }
         } catch (err) {
-            registrar(`Error: ${err instanceof Error ? err.message : String(err)}`);
             console.error("Error leyendo la carta: ", err);
         } finally {
             setLeyendo(false);
@@ -392,31 +357,6 @@ const EscanearPage = () => {
                         </form>
                     )}
                 </>
-            )}
-
-            {/* TODO: quitar — panel de debug temporal para depurar en el móvil */}
-            {logs.length > 0 && (
-                <div className="mt-6 bg-noc-bg border border-noc-divider rounded-md p-3">
-                    <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] tracking-widest uppercase text-noc-accent">
-                            Debug (temporal)
-                        </p>
-                        <button
-                            type="button"
-                            onClick={copiarLog}
-                            className="text-xs text-noc-neutral-500 hover:text-noc-text transition-colors"
-                        >
-                            {logCopiado ? "¡Copiado!" : "Copiar log"}
-                        </button>
-                    </div>
-                    <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-                        {logs.map((linea, i) => (
-                            <p key={i} className="text-xs text-noc-neutral-500 break-words">
-                                {linea}
-                            </p>
-                        ))}
-                    </div>
-                </div>
             )}
         </div>
     );
