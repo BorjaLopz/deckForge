@@ -5,6 +5,12 @@ import { reconocerCarta } from "../services/cartasService";
 import { calcularMarcoGuia, parsearSetYNumero, recortarInfoColeccion, recortarTitulo, RELACION_CARTA } from "../utils/reconocimientoCarta";
 import type { ResultadoReconocimiento } from "../types/scryfall";
 
+/* `focusMode` no está en el estándar MediaTrackConstraintSet de TS todavía,
+   aunque varios navegadores ya lo soportan como extensión. */
+interface RestriccionConEnfoque extends MediaTrackConstraintSet {
+    focusMode?: "continuous" | "manual" | "single-shot";
+}
+
 const EscanearPage = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -12,9 +18,15 @@ const EscanearPage = () => {
     const navigate = useNavigate();
 
     const [errorCamara, setErrorCamara] = useState<string | null>(null);
-    const [procesando, setProcesando] = useState(false);
+    const [leyendo, setLeyendo] = useState(false);
+    const [buscando, setBuscando] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [resultado, setResultado] = useState<ResultadoReconocimiento | null>(null);
+
+    /* Una vez capturada una foto, se revisan/corrigen estos campos a mano
+       antes de mandarlos a Scryfall: el OCR es un punto de partida, no la
+       verdad final. */
+    const [campos, setCampos] = useState<{ nombre: string; set: string; numero: string } | null>(null);
 
     /* TODO: quitar este panel de logs — es temporal, para depurar en el móvil
        donde no hay devtools a mano. */
@@ -31,11 +43,27 @@ const EscanearPage = () => {
             try {
                 registrar("Pidiendo acceso a la cámara...");
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
                 });
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                 }
+
+                // Enfoque continuo si el navegador lo soporta: no es parte
+                // del estándar MediaTrackConstraints todavía, de ahí el `any`.
+                // Best-effort — si falla, seguimos con el enfoque por defecto.
+                try {
+                    const [pista] = stream.getVideoTracks();
+                    const restriccion: RestriccionConEnfoque = { focusMode: "continuous" };
+                    await pista?.applyConstraints({ advanced: [restriccion] });
+                } catch {
+                    // el navegador no lo soporta, no pasa nada
+                }
+
                 registrar("Cámara conectada.");
             } catch (err) {
                 registrar(`Error de cámara: ${err instanceof Error ? err.message : String(err)}`);
@@ -65,14 +93,15 @@ const EscanearPage = () => {
         return workerRef.current;
     };
 
-    const capturarYReconocer = async () => {
+    const capturarYLeer = async () => {
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        if (!video || !canvas || procesando) return;
+        if (!video || !canvas || leyendo) return;
 
-        setProcesando(true);
+        setLeyendo(true);
         setError(null);
         setResultado(null);
+        setCampos(null);
 
         try {
             registrar(`Capturando fotograma (${video.videoWidth}x${video.videoHeight})...`);
@@ -97,29 +126,49 @@ const EscanearPage = () => {
             const resultadoInfo = await worker.recognize(recorteInfo);
             registrar(`OCR set/número (crudo): "${resultadoInfo.data.text.trim()}"`);
 
-            const nombre = resultadoTitulo.data.text.trim().split("\n")[0]?.trim();
-
-            if (!nombre) {
-                registrar("No se leyó ningún nombre en el recorte de título.");
-                setError("No se pudo leer el nombre. Encuadra mejor la carta e inténtalo de nuevo.");
-                return;
-            }
-
+            const nombre = resultadoTitulo.data.text.trim().split("\n")[0]?.trim() ?? "";
             const { set, numero } = parsearSetYNumero(resultadoInfo.data.text);
             registrar(`Parseado -> nombre: "${nombre}" | set: ${set ?? "(ninguno)"} | número: ${numero ?? "(ninguno)"}`);
 
-            registrar("Consultando a Scryfall...");
-            const carta = await reconocerCarta(nombre, set, numero);
+            // Siempre pasamos a la pantalla de revisión, aunque el OCR no
+            // haya leído nada: mejor dejar corregir/rellenar a mano que
+            // dejar al usuario sin salida.
+            setCampos({ nombre, set: set ?? "", numero: numero ?? "" });
+        } catch (err) {
+            const mensaje = err instanceof Error ? err.message : String(err);
+            registrar(`Error: ${mensaje}`);
+            console.error("Error leyendo la carta: ", err);
+            setError("No se pudo procesar la foto. Inténtalo de nuevo.");
+        } finally {
+            setLeyendo(false);
+        }
+    };
+
+    const buscarCarta = async () => {
+        if (!campos || !campos.nombre.trim() || buscando) return;
+
+        setBuscando(true);
+        setError(null);
+
+        try {
+            registrar(`Consultando a Scryfall: nombre="${campos.nombre}" set="${campos.set}" numero="${campos.numero}"...`);
+            const carta = await reconocerCarta(campos.nombre.trim(), campos.set.trim() || undefined, campos.numero.trim() || undefined);
             registrar(`Resuelto: "${carta.nombre}" (scryfallId=${carta.scryfallId})`);
             setResultado(carta);
         } catch (err) {
             const mensaje = err instanceof Error ? err.message : String(err);
             registrar(`Error: ${mensaje}`);
             console.error("Error reconociendo la carta: ", err);
-            setError("No se pudo reconocer la carta. Inténtalo de nuevo.");
+            setError("No se encontró ninguna carta con ese nombre. Revisa cómo lo has escrito.");
         } finally {
-            setProcesando(false);
+            setBuscando(false);
         }
+    };
+
+    const volverACapturar = () => {
+        setCampos(null);
+        setResultado(null);
+        setError(null);
     };
 
     return (
@@ -133,7 +182,7 @@ const EscanearPage = () => {
 
             {errorCamara ? (
                 <p className="text-sm text-red-400">{errorCamara}</p>
-            ) : (
+            ) : !campos ? (
                 <>
                     <div className="relative w-full rounded-lg overflow-hidden bg-black">
                         <video
@@ -158,17 +207,77 @@ const EscanearPage = () => {
 
                     <button
                         type="button"
-                        onClick={capturarYReconocer}
-                        disabled={procesando}
+                        onClick={capturarYLeer}
+                        disabled={leyendo}
                         className="w-full mt-4 bg-transparent border border-noc-accent text-noc-accent hover:bg-noc-accent-900 disabled:opacity-50 transition-colors rounded-lg py-2.5 text-sm font-medium"
                     >
-                        {procesando ? "Reconociendo..." : "Capturar y reconocer"}
+                        {leyendo ? "Leyendo..." : "Capturar y leer"}
                     </button>
 
                     {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
+                </>
+            ) : (
+                <div className="flex flex-col gap-3">
+                    <p className="text-xs text-noc-neutral-500">
+                        Revisa y corrige lo que haga falta antes de buscar — el OCR es solo un punto de partida.
+                    </p>
+
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs text-noc-neutral-500">Nombre</label>
+                        <input
+                            type="text"
+                            value={campos.nombre}
+                            onChange={(e) => setCampos({ ...campos, nombre: e.target.value })}
+                            autoFocus
+                            className="w-full bg-noc-bg border border-noc-divider rounded-md px-3 py-2 text-sm text-noc-text focus:outline-none focus:border-noc-accent"
+                        />
+                    </div>
+
+                    <div className="flex gap-3">
+                        <div className="flex flex-col gap-1 flex-1">
+                            <label className="text-xs text-noc-neutral-500">Set (opcional)</label>
+                            <input
+                                type="text"
+                                value={campos.set}
+                                onChange={(e) => setCampos({ ...campos, set: e.target.value })}
+                                placeholder="ej. ltr"
+                                className="w-full bg-noc-bg border border-noc-divider rounded-md px-3 py-2 text-sm text-noc-text placeholder:text-noc-neutral-700 focus:outline-none focus:border-noc-accent"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1 flex-1">
+                            <label className="text-xs text-noc-neutral-500">Número (opcional)</label>
+                            <input
+                                type="text"
+                                value={campos.numero}
+                                onChange={(e) => setCampos({ ...campos, numero: e.target.value })}
+                                placeholder="ej. 211"
+                                className="w-full bg-noc-bg border border-noc-divider rounded-md px-3 py-2 text-sm text-noc-text placeholder:text-noc-neutral-700 focus:outline-none focus:border-noc-accent"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 mt-1">
+                        <button
+                            type="button"
+                            onClick={buscarCarta}
+                            disabled={buscando || !campos.nombre.trim()}
+                            className="bg-transparent border border-noc-accent text-noc-accent hover:bg-noc-accent-900 disabled:opacity-50 transition-colors rounded-lg px-4 py-2 text-sm font-medium"
+                        >
+                            {buscando ? "Buscando..." : "Buscar carta"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={volverACapturar}
+                            className="bg-transparent border border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors rounded-lg px-4 py-2 text-sm font-medium"
+                        >
+                            Volver a la cámara
+                        </button>
+                    </div>
+
+                    {error && <p className="text-sm text-red-400">{error}</p>}
 
                     {resultado && (
-                        <div className="flex items-center gap-4 bg-noc-surface border border-noc-divider rounded-lg p-4 mt-4">
+                        <div className="flex items-center gap-4 bg-noc-surface border border-noc-divider rounded-lg p-4">
                             {resultado.imagenUrl && (
                                 <img src={resultado.imagenUrl} alt={resultado.nombre} className="w-20 rounded-md shrink-0" />
                             )}
@@ -188,13 +297,13 @@ const EscanearPage = () => {
                                         onClick={() => setResultado(null)}
                                         className="bg-transparent border border-noc-divider text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors rounded-lg px-3 py-1.5 text-sm font-medium"
                                     >
-                                        Reintentar
+                                        No, corregir
                                     </button>
                                 </div>
                             </div>
                         </div>
                     )}
-                </>
+                </div>
             )}
 
             {/* TODO: quitar — panel de debug temporal para depurar en el móvil */}
