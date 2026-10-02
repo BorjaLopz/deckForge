@@ -40,6 +40,11 @@ const FilaRecomendacion = ({ carta, seleccionada, deshabilitada, enMazo = false,
 					<span className="block text-xs text-noc-neutral-500 truncate">{carta.nombreIngles}</span>
 				)}
 			</span>
+			{carta.cantidadSugerida > 1 && (
+				<span className="text-xs text-noc-text tabular-nums shrink-0" title="Copias que lleva el mazo medio en EDHREC">
+					x{carta.cantidadSugerida}
+				</span>
+			)}
 			{enMazo ? (
 				<span className="text-[11px] text-noc-neutral-500 shrink-0">En el mazo</span>
 			) : laTienes && (

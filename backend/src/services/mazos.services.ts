@@ -165,7 +165,8 @@ export const crearMazoDesdeComandante = async (
     usuarioId: string,
     nombre: string,
     comandanteScryfallId: string,
-    scryfallIds: string[]
+    scryfallIds: string[],
+    cantidades: Record<string, number> = {}
 ): Promise<number> => {
     const cartas = await cartasDeScryfall(comandanteScryfallId, scryfallIds);
 
@@ -176,7 +177,7 @@ export const crearMazoDesdeComandante = async (
         );
         const mazoId: number = rows[0].id;
 
-        await poblarMazoDesdeComandante(client, mazoId, comandanteScryfallId, cartas);
+        await poblarMazoDesdeComandante(client, mazoId, comandanteScryfallId, cartas, cantidades);
         return mazoId;
     });
 };
@@ -187,7 +188,8 @@ export const completarMazoDesdeComandante = async (
     usuarioId: string,
     mazoId: number,
     comandanteScryfallId: string,
-    scryfallIds: string[]
+    scryfallIds: string[],
+    cantidades: Record<string, number> = {}
 ): Promise<void> => {
     const { rows } = await pool.query(`SELECT formato FROM mazos WHERE id = $1 AND usuario_id = $2`, [mazoId, usuarioId]);
     if (rows.length === 0) {
@@ -199,7 +201,7 @@ export const completarMazoDesdeComandante = async (
 
     const cartas = await cartasDeScryfall(comandanteScryfallId, scryfallIds);
 
-    await ejecutarEnTransaccion((client) => poblarMazoDesdeComandante(client, mazoId, comandanteScryfallId, cartas));
+    await ejecutarEnTransaccion((client) => poblarMazoDesdeComandante(client, mazoId, comandanteScryfallId, cartas, cantidades));
 };
 
 const cartasDeScryfall = async (comandanteScryfallId: string, scryfallIds: string[]) => {
@@ -215,7 +217,8 @@ const poblarMazoDesdeComandante = async (
     client: PoolClient,
     mazoId: number,
     comandanteScryfallId: string,
-    cartas: CartaParaInventario[]
+    cartas: CartaParaInventario[],
+    cantidades: Record<string, number>
 ) => {
     const { rows: existentes } = await client.query(
         `SELECT cartas.id, cartas.oracle_id
@@ -236,11 +239,18 @@ const poblarMazoDesdeComandante = async (
 
     await client.query(`UPDATE mazos SET comandante_id = $1 WHERE id = $2`, [comandanteCartaId, mazoId]);
 
+    /* Solo las básicas pueden ir repetidas: aunque el cliente pida 4 de otra
+       carta, aquí entra 1 (el singleton lo garantiza el servidor). */
+    const filas = nuevas.map((c) => ({
+        cartaId: cartaIdPorScryfall.get(c.scryfallId)!,
+        cantidad: esTierraBasica(c.typeLine ?? null) ? (cantidades[c.scryfallId] ?? 1) : 1
+    }));
+
     await client.query(
         `INSERT INTO mazo_cartas (mazo_id, carta_id, cantidad)
-         SELECT $1, carta_id, 1 FROM unnest($2::int[]) AS carta_id
+         SELECT $1, f.carta_id, f.cantidad FROM unnest($2::int[], $3::int[]) AS f(carta_id, cantidad)
          ON CONFLICT (mazo_id, carta_id) DO NOTHING`,
-        [mazoId, [...cartaIdPorScryfall.values()]]
+        [mazoId, filas.map((f) => f.cartaId), filas.map((f) => f.cantidad)]
     );
 };
 

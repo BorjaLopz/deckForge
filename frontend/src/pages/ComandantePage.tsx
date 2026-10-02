@@ -21,7 +21,7 @@ const ComandantePage = () => {
 
 	const [busqueda, setBusqueda] = useState(searchParams.get("nombre") ?? "");
 	const { datos, cargando, error, buscar } = useRecomendacionesComandante();
-	const { seleccionadas, alternar, marcarPoseidas, completar, limpiar } = useSeleccionRecomendaciones();
+	const { seleccionadas, totalCopias, alternar, marcarPoseidas, completar, limpiar } = useSeleccionRecomendaciones();
 
 	const [mazoACompletar, setMazoACompletar] = useState<MazoDetalle | null>(null);
 	const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
@@ -67,7 +67,9 @@ const ComandantePage = () => {
 		.filter((c) => !datos || c.oracle_id !== datos.comandante.oracleId)
 		.reduce((suma, c) => suma + c.cantidad, 0);
 	const maxSeleccion = Math.max(MAX_CARTAS_COMMANDER - copiasYaEnMazo, 0);
-	const lleno = seleccionadas.size >= maxSeleccion;
+	const lleno = totalCopias >= maxSeleccion;
+	// una carta no seleccionada cabe si sus copias (4 Forest) entran en los huecos que quedan
+	const noCabe = (c: CartaRecomendada) => !seleccionadas.has(c.scryfallId) && totalCopias + c.cantidadSugerida > maxSeleccion;
 
 	const handleGuardar = async () => {
 		if (!accessToken || !datos || seleccionadas.size === 0 || guardando) return;
@@ -77,14 +79,14 @@ const ComandantePage = () => {
 
 		try {
 			if (mazoId !== null) {
-				await completarMazoDesdeComandante(accessToken, mazoId, datos.comandante.scryfallId, [...seleccionadas]);
+				await completarMazoDesdeComandante(accessToken, mazoId, datos.comandante.scryfallId, seleccionadas);
 				navigate(`/mazos/${mazoId}`);
 			} else {
 				const { id } = await crearMazoDesdeComandante(
 					accessToken,
 					nombreMazo.trim() || datos.comandante.nombre,
 					datos.comandante.scryfallId,
-					[...seleccionadas]
+					seleccionadas
 				);
 				navigate(`/mazos/${id}`);
 			}
@@ -155,13 +157,22 @@ const ComandantePage = () => {
 									El mazo ya tiene {copiasYaEnMazo} cartas además del comandante
 								</p>
 							)}
+							{datos.composicionMedia && (
+								<p className="text-xs text-noc-neutral-500">
+									Mazo medio: {datos.composicionMedia.tierras} tierras ({datos.composicionMedia.basicas} básicas)
+									· {datos.composicionMedia.criaturas} criaturas · {datos.composicionMedia.instantaneos} instantáneos
+									· {datos.composicionMedia.conjuros} conjuros · {datos.composicionMedia.artefactos} artefactos
+									· {datos.composicionMedia.encantamientos} encantamientos
+									{datos.composicionMedia.planeswalkers > 0 && ` · ${datos.composicionMedia.planeswalkers} planeswalkers`}
+								</p>
+							)}
 						</div>
 					</div>
 
 					<div className="sticky top-0 z-10 bg-noc-bg py-3 mb-2 border-b border-noc-divider flex flex-col gap-2">
 						<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
 							<span className={`tabular-nums ${lleno ? "text-noc-accent" : "text-noc-text"}`}>
-								{seleccionadas.size} / {maxSeleccion} {mazoId !== null ? "huecos" : "seleccionadas"}
+								{totalCopias} / {maxSeleccion} {mazoId !== null ? "huecos" : "seleccionadas"}
 							</span>
 							<button type="button" onClick={() => marcarPoseidas(seleccionables, maxSeleccion)} className="text-noc-neutral-500 hover:text-noc-text transition-colors">
 								Marcar las que tengo
@@ -192,7 +203,7 @@ const ComandantePage = () => {
 							>
 								{guardando
 									? "Guardando..."
-									: mazoId !== null ? `Añadir ${seleccionadas.size} al mazo` : "Crear mazo"}
+									: mazoId !== null ? `Añadir ${totalCopias} al mazo` : "Crear mazo"}
 							</button>
 						</div>
 						{errorGuardar && <p className="text-xs text-red-400">{errorGuardar}</p>}
@@ -221,8 +232,8 @@ const ComandantePage = () => {
 													carta={carta}
 													seleccionada={seleccionada}
 													enMazo={enMazo}
-													deshabilitada={enMazo || (lleno && !seleccionada)}
-													onAlternar={() => alternar(carta.scryfallId)}
+													deshabilitada={enMazo || noCabe(carta)}
+													onAlternar={() => alternar(carta)}
 												/>
 											);
 										})}

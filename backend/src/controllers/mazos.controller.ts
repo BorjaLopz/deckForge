@@ -38,14 +38,26 @@ export const crear = async (req: RequestAutenticado, res: Response) => {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_CARTAS_MAZO = 99; // Commander: 99 + comandante
 
-/* Devuelve el mensaje de error, o null si el cuerpo es válido. */
-const validarCartasDeComandante = (comandanteScryfallId: unknown, scryfallIds: unknown): string | null => {
-    const idsValidos = Array.isArray(scryfallIds) && scryfallIds.every((id) => typeof id === "string" && UUID_REGEX.test(id));
+const MAX_COPIAS_BASICA = 40;
 
-    if (typeof comandanteScryfallId !== "string" || !UUID_REGEX.test(comandanteScryfallId) || !idsValidos) {
+/* Devuelve el mensaje de error, o null si el cuerpo es válido.
+   `cantidades` es opcional ({ scryfallId: copias }); el servicio solo deja
+   repetir básicas, aquí solo se comprueba que sean números razonables y
+   que el total no pase de 99. */
+const validarCartasDeComandante = (comandanteScryfallId: unknown, scryfallIds: unknown, cantidades: unknown): string | null => {
+    const idsValidos = Array.isArray(scryfallIds) && scryfallIds.every((id) => typeof id === "string" && UUID_REGEX.test(id));
+    const cantidadesValidas = cantidades === undefined || (
+        typeof cantidades === "object" && cantidades !== null && !Array.isArray(cantidades)
+        && Object.values(cantidades).every((n) => Number.isInteger(n) && n >= 1 && n <= MAX_COPIAS_BASICA)
+    );
+
+    if (typeof comandanteScryfallId !== "string" || !UUID_REGEX.test(comandanteScryfallId) || !idsValidos || !cantidadesValidas) {
         return "Datos del mazo inválidos";
     }
-    if (scryfallIds.length > MAX_CARTAS_MAZO) {
+
+    const porId = (cantidades ?? {}) as Record<string, number>;
+    const totalCopias = scryfallIds.reduce((suma: number, id: string) => suma + (porId[id] ?? 1), 0);
+    if (totalCopias > MAX_CARTAS_MAZO) {
         return `Un mazo Commander lleva como mucho ${MAX_CARTAS_MAZO} cartas además del comandante`;
     }
     return null;
@@ -53,16 +65,16 @@ const validarCartasDeComandante = (comandanteScryfallId: unknown, scryfallIds: u
 
 export const crearDesdeComandante = async (req: RequestAutenticado, res: Response) => {
     try {
-        const { nombre, comandanteScryfallId, scryfallIds } = req.body;
+        const { nombre, comandanteScryfallId, scryfallIds, cantidades } = req.body;
 
         const errorValidacion = !nombre || typeof nombre !== "string"
             ? "Falta el nombre del mazo"
-            : validarCartasDeComandante(comandanteScryfallId, scryfallIds);
+            : validarCartasDeComandante(comandanteScryfallId, scryfallIds, cantidades);
         if (errorValidacion) {
             return buildError(res, errorValidacion, "MAZO_COMANDANTE_DATOS_INVALIDOS", 400);
         }
 
-        const id = await crearMazoDesdeComandante(req.usuarioId, nombre.trim(), comandanteScryfallId, scryfallIds);
+        const id = await crearMazoDesdeComandante(req.usuarioId, nombre.trim(), comandanteScryfallId, scryfallIds, cantidades);
         buildResponse(res, { id });
     } catch (error) {
         console.error("Error creando el mazo desde comandante: ", error);
@@ -73,14 +85,14 @@ export const crearDesdeComandante = async (req: RequestAutenticado, res: Respons
 export const completarDesdeComandante = async (req: RequestAutenticado, res: Response) => {
     try {
         const { mazoId } = req.params;
-        const { comandanteScryfallId, scryfallIds } = req.body;
+        const { comandanteScryfallId, scryfallIds, cantidades } = req.body;
 
-        const errorValidacion = validarCartasDeComandante(comandanteScryfallId, scryfallIds);
+        const errorValidacion = validarCartasDeComandante(comandanteScryfallId, scryfallIds, cantidades);
         if (errorValidacion) {
             return buildError(res, errorValidacion, "MAZO_COMANDANTE_DATOS_INVALIDOS", 400);
         }
 
-        await completarMazoDesdeComandante(req.usuarioId, Number(mazoId), comandanteScryfallId, scryfallIds);
+        await completarMazoDesdeComandante(req.usuarioId, Number(mazoId), comandanteScryfallId, scryfallIds, cantidades);
         buildResponse(res, { id: Number(mazoId) });
     } catch (error) {
         console.error("Error completando el mazo desde comandante: ", error);

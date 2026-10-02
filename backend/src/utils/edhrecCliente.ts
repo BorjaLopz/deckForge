@@ -71,6 +71,69 @@ export const slugEdhrec = (nombreIngles: string): string =>
         .replace(/\s+/g, "-")
         .replace(/-+/g, "-");
 
+/* Composición media de los mazos de un comandante. La página de
+   recomendaciones lista cada carta una vez (sin cantidades); el "mazo
+   medio" sí trae cuántas básicas lleva y cuántas cartas de cada tipo. */
+export interface MazoMedioEdhrec {
+    cantidadPorNombre: Record<string, number>; // nombre en inglés -> copias ("Forest" -> 4)
+    composicion: {
+        tierras: number;
+        basicas: number;
+        criaturas: number;
+        instantaneos: number;
+        conjuros: number;
+        artefactos: number;
+        encantamientos: number;
+        planeswalkers: number;
+        batallas: number;
+    };
+}
+
+interface RespuestaMazoMedio {
+    deck?: { cards?: Record<string, [string, number][]> };
+    land?: number; basic?: number; creature?: number; instant?: number; sorcery?: number;
+    artifact?: number; enchantment?: number; planeswalker?: number; battle?: number;
+}
+
+const cacheMazoMedio = new Map<string, { timestamp: number; datos: MazoMedioEdhrec | null }>();
+
+export const obtenerMazoMedioEdhrec = async (nombreIngles: string): Promise<MazoMedioEdhrec | null> => {
+    const slug = slugEdhrec(nombreIngles);
+    const enCache = cacheMazoMedio.get(slug);
+    if (enCache && Date.now() - enCache.timestamp < CACHE_TTL_MS) return enCache.datos;
+
+    const res = await fetch(`https://json.edhrec.com/pages/average-decks/${slug}.json`, {
+        headers: { "User-Agent": "deckForge/1.0", "Accept": "application/json" }
+    });
+
+    // sin mazo medio no es un error: las recomendaciones siguen sirviendo
+    let datos: MazoMedioEdhrec | null = null;
+    if (res.ok) {
+        const json = (await res.json()) as RespuestaMazoMedio;
+        const cantidadPorNombre: Record<string, number> = {};
+        for (const [nombre, cantidad] of Object.values(json.deck?.cards ?? {}).flat()) {
+            cantidadPorNombre[nombre] = cantidad;
+        }
+        datos = {
+            cantidadPorNombre,
+            composicion: {
+                tierras: json.land ?? 0,
+                basicas: json.basic ?? 0,
+                criaturas: json.creature ?? 0,
+                instantaneos: json.instant ?? 0,
+                conjuros: json.sorcery ?? 0,
+                artefactos: json.artifact ?? 0,
+                encantamientos: json.enchantment ?? 0,
+                planeswalkers: json.planeswalker ?? 0,
+                batallas: json.battle ?? 0
+            }
+        };
+    }
+
+    cacheMazoMedio.set(slug, { timestamp: Date.now(), datos });
+    return datos;
+};
+
 /* null = EDHREC no tiene página para ese comandante */
 export const obtenerRecomendacionesEdhrec = async (nombreIngles: string): Promise<RecomendacionesEdhrec | null> => {
     const slug = slugEdhrec(nombreIngles);

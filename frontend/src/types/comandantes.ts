@@ -8,6 +8,19 @@ export interface CartaRecomendada {
 	inclusion: number; // 0..1 — fracción de mazos de este comandante en EDHREC que la llevan
 	sinergia: number;
 	cantidadEnInventario: number;
+	cantidadSugerida: number; // > 1 solo en básicas (copias que lleva el mazo medio)
+}
+
+export interface ComposicionMedia {
+	tierras: number;
+	basicas: number;
+	criaturas: number;
+	instantaneos: number;
+	conjuros: number;
+	artefactos: number;
+	encantamientos: number;
+	planeswalkers: number;
+	batallas: number;
 }
 
 export interface CategoriaRecomendada {
@@ -27,5 +40,6 @@ export interface ComandanteResumen {
 export interface RecomendacionesComandante {
 	comandante: ComandanteResumen;
 	numMazos: number;
+	composicionMedia: ComposicionMedia | null; // null si EDHREC no tiene mazo medio
 	categorias: CategoriaRecomendada[];
 }

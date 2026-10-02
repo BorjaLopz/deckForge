@@ -1,5 +1,6 @@
 import { pool } from "../db/pool";
-import { obtenerRecomendacionesEdhrec, slugEdhrec } from "../utils/edhrecCliente";
+import { obtenerMazoMedioEdhrec, obtenerRecomendacionesEdhrec, slugEdhrec } from "../utils/edhrecCliente";
+import { esTierraBasica } from "../utils/formatos";
 import { buscarComandantesEnEspanol, obtenerCartasPorIds, resolverCartaEnIngles } from "../utils/scryfallCliente";
 import { CartaScryfallBruta } from "../types/scryfall";
 
@@ -11,6 +12,7 @@ interface DatosScryfallCarta {
     oracleId: string | null;
     imagenUrl: string | null;
     imagenPequena: string | null;
+    esBasica: boolean;
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -29,7 +31,7 @@ const datosScryfallDeRecomendaciones = async (slug: string, ids: string[]) => {
 
     const cartas = await obtenerCartasPorIds(ids);
     const porId = new Map<string, DatosScryfallCarta>(
-        cartas.map((c) => [c.id, { oracleId: c.oracle_id ?? null, ...imagenes(c) }])
+        cartas.map((c) => [c.id, { oracleId: c.oracle_id ?? null, ...imagenes(c), esBasica: esTierraBasica(c.type_line) }])
     );
 
     cacheScryfall.set(slug, { timestamp: Date.now(), porId });
@@ -93,7 +95,10 @@ export const obtenerRecomendacionesComandante = async (usuarioId: string, nombre
     }
 
     const idsRecomendados = edhrec.categorias.flatMap((cat) => cat.cartas.map((c) => c.scryfallId));
-    const datosScryfall = await datosScryfallDeRecomendaciones(slugEdhrec(comandante.name), idsRecomendados);
+    const [datosScryfall, mazoMedio] = await Promise.all([
+        datosScryfallDeRecomendaciones(slugEdhrec(comandante.name), idsRecomendados),
+        obtenerMazoMedioEdhrec(comandante.name)
+    ]);
 
     const oracleIds = [
         comandante.oracle_id,
@@ -113,6 +118,7 @@ export const obtenerRecomendacionesComandante = async (usuarioId: string, nombre
             cantidadEnInventario: poseidaDe(comandante.oracle_id)?.cantidad ?? 0
         },
         numMazos: edhrec.numMazos,
+        composicionMedia: mazoMedio?.composicion ?? null,
         categorias: edhrec.categorias.map((cat) => ({
             categoria: cat.categoria,
             cartas: cat.cartas.map((c) => {
@@ -127,7 +133,10 @@ export const obtenerRecomendacionesComandante = async (usuarioId: string, nombre
                     imagenPequena: datos?.imagenPequena ?? null,
                     inclusion: c.inclusion,
                     sinergia: c.sinergia,
-                    cantidadEnInventario: poseida?.cantidad ?? 0
+                    cantidadEnInventario: poseida?.cantidad ?? 0,
+                    /* Solo las básicas pueden ir repetidas en Commander: cogemos
+                       cuántas lleva el mazo medio (4 Forest...), si no, 1. */
+                    cantidadSugerida: datos?.esBasica ? (mazoMedio?.cantidadPorNombre[c.nombreIngles] ?? 1) : 1
                 };
             })
         }))

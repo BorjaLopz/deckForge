@@ -20,16 +20,23 @@ export const crearMazo = async (accessToken: string, nombre: string, formato: Fo
     return data.data;
 };
 
+/* Selección id -> copias a lo que espera la API: los ids, y las cantidades
+   solo de las que llevan más de 1 (las básicas). */
+const cuerpoSeleccion = (seleccion: Map<string, number>) => ({
+    scryfallIds: [...seleccion.keys()],
+    cantidades: Object.fromEntries([...seleccion].filter(([, copias]) => copias > 1))
+});
+
 export const crearMazoDesdeComandante = async (
     accessToken: string,
     nombre: string,
     comandanteScryfallId: string,
-    scryfallIds: string[]
+    seleccion: Map<string, number>
 ): Promise<{ id: number }> => {
     const response = await fetch(`${BACKEND_BASE_URL}/api/mazos/desde-comandante`, {
         method: "POST",
         headers: cabeceras(accessToken),
-        body: JSON.stringify({ nombre, comandanteScryfallId, scryfallIds })
+        body: JSON.stringify({ nombre, comandanteScryfallId, ...cuerpoSeleccion(seleccion) })
     });
 
     const data = await response.json().catch(() => null);
@@ -43,12 +50,12 @@ export const completarMazoDesdeComandante = async (
     accessToken: string,
     mazoId: number,
     comandanteScryfallId: string,
-    scryfallIds: string[]
+    seleccion: Map<string, number>
 ): Promise<void> => {
     const response = await fetch(`${BACKEND_BASE_URL}/api/mazos/${mazoId}/desde-comandante`, {
         method: "POST",
         headers: cabeceras(accessToken),
-        body: JSON.stringify({ comandanteScryfallId, scryfallIds })
+        body: JSON.stringify({ comandanteScryfallId, ...cuerpoSeleccion(seleccion) })
     });
 
     if (!response.ok) {
