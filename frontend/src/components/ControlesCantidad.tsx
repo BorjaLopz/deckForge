@@ -4,9 +4,12 @@ interface ControlesCantidadProps {
     onDecrementar: () => void;
     onEliminar: () => void;
     className?: string;
+    /* Motivo para no dejar sumar (ej. límite de copias del formato); se
+       muestra como tooltip. Sin motivo, el "+" está activo. */
+    motivoNoIncrementar?: string;
 }
 
-const ControlesCantidad = ({ cantidad, onIncrementar, onDecrementar, onEliminar, className = "" }: ControlesCantidadProps) => (
+const ControlesCantidad = ({ cantidad, onIncrementar, onDecrementar, onEliminar, className = "", motivoNoIncrementar }: ControlesCantidadProps) => (
     <div className={`flex items-center justify-between bg-noc-surface border border-noc-divider rounded-lg px-1.5 py-1 shadow-[0px_1.2px_0px_rgba(0,0,0,0.03)] ${className}`}>
         <div className="flex items-center gap-0.5 bg-noc-bg rounded-full p-0.5">
             <button
@@ -23,8 +26,10 @@ const ControlesCantidad = ({ cantidad, onIncrementar, onDecrementar, onEliminar,
             </span>
             <button
                 onClick={onIncrementar}
-                aria-label="Añadir una unidad"
-                className="w-6 h-6 flex items-center justify-center rounded-full text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-noc-accent"
+                disabled={motivoNoIncrementar !== undefined}
+                title={motivoNoIncrementar}
+                aria-label={motivoNoIncrementar ?? "Añadir una unidad"}
+                className="w-6 h-6 flex items-center justify-center rounded-full text-noc-neutral-500 hover:text-noc-text hover:bg-noc-neutral-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-noc-accent disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-noc-neutral-500 disabled:cursor-not-allowed"
             >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
                     <path d="M5 1V9M1 5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

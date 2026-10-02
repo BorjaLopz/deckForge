@@ -4,6 +4,8 @@ import LandingPage from './pages/LadingPage'
 import LoginPage from './pages/LoginPage'
 import InventarioPage from './pages/InventarioPage'
 import MazosPage from './pages/MazosPage'
+import MazoDetallePage from './pages/MazoDetallePage'
+import ComandantePage from './pages/ComandantePage'
 import InformationCardPage from './pages/InformationCardPage'
 import NotFoundPage from './pages/NotFoundPage'
 import RutaProtegida from './routing/RutaProtegida'
@@ -28,6 +30,16 @@ function App() {
         <Route path="/mazos" element={
           <RutaProtegida>
             <MazosPage />
+          </RutaProtegida>
+        } />
+        <Route path="/mazos/comandante" element={
+          <RutaProtegida>
+            <ComandantePage />
+          </RutaProtegida>
+        } />
+        <Route path="/mazos/:mazoId" element={
+          <RutaProtegida>
+            <MazoDetallePage />
           </RutaProtegida>
         } />
         <Route path="/escanear" element={

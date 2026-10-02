@@ -35,7 +35,7 @@ const CartaResumen = ({ id, nombre, imagen, expansion, numeroColeccion, rareza, 
                                 aria-hidden="true"
                             />
                         )}
-                        {expansion} · #{numeroColeccion}
+                        {expansion ? `${expansion} · ` : ""}#{numeroColeccion}
                     </p>
                 </div>
             </Link>
