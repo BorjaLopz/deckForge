@@ -4,13 +4,15 @@ import { CartaParaInventario } from "../types/inventario";
 
 const insertarOAsignarCarta = async (client: PoolClient, carta: Omit<CartaParaInventario, "colores" | "tipos">): Promise<number> => {
 
-    const sql = `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                ON CONFLICT (scryfall_id) DO UPDATE SET imagen_url = EXCLUDED.imagen_url, rareza = EXCLUDED.rareza
+    const sql = `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza, oracle_id, type_line)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                ON CONFLICT (scryfall_id) DO UPDATE SET imagen_url = EXCLUDED.imagen_url, rareza = EXCLUDED.rareza,
+                    oracle_id = COALESCE(EXCLUDED.oracle_id, cartas.oracle_id),
+                    type_line = COALESCE(EXCLUDED.type_line, cartas.type_line)
                 RETURNING id
                 `
 
-    const resultado = await client.query(sql, [carta.scryfallId, carta.nombre, carta.manaValue, carta.manaCost, carta.ataque, carta.vida, carta.descripcion, carta.expansionId, carta.numeroCarta, carta.foil, carta.imagenUrl, carta.rareza])
+    const resultado = await client.query(sql, [carta.scryfallId, carta.nombre, carta.manaValue, carta.manaCost, carta.ataque, carta.vida, carta.descripcion, carta.expansionId, carta.numeroCarta, carta.foil, carta.imagenUrl, carta.rareza, carta.oracleId ?? null, carta.typeLine ?? null])
 
     return resultado.rows[0].id;
 
@@ -97,6 +99,98 @@ const agregarCartaAInventario = async (client: PoolClient, cartaId: number, user
     const resultado = await client.query(sql, [cartaId, userId, cantidad]);
 
     return resultado.rows[0].cantidad_poseida;
+}
+
+const mapaNombreAId = (filas: { id: number; nombre: string }[]) =>
+    new Map(filas.map((f) => [f.nombre, f.id]));
+
+/* Versión en lote de insertarOAsignarCarta + colores + tipos: con `unnest`
+   cada tabla se rellena en UNA consulta para todas las cartas, en vez de
+   varias consultas por carta. Contra una BD remota (cada ida y vuelta
+   cuesta ~40ms) pasar de ~500 consultas a ~7 es la diferencia entre 20s y
+   menos de 1s. Recibe el client para poder ir dentro de otra transacción. */
+export const resolverOCrearCartasEnLote = async (
+    client: PoolClient,
+    cartas: CartaParaInventario[]
+): Promise<Map<string, number>> => {
+    // ON CONFLICT DO UPDATE falla si la misma fila aparece dos veces en el INSERT
+    const unicas = [...new Map(cartas.map((c) => [c.scryfallId, c])).values()];
+    if (unicas.length === 0) return new Map();
+
+    const { rows } = await client.query(
+        `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza, oracle_id, type_line)
+         SELECT * FROM unnest($1::uuid[], $2::varchar[], $3::int[], $4::varchar[], $5::int[], $6::int[], $7::text[],
+                              $8::int[], $9::varchar[], $10::bool[], $11::text[], $12::varchar[], $13::uuid[], $14::text[])
+         ON CONFLICT (scryfall_id) DO UPDATE SET imagen_url = EXCLUDED.imagen_url, rareza = EXCLUDED.rareza,
+             oracle_id = COALESCE(EXCLUDED.oracle_id, cartas.oracle_id),
+             type_line = COALESCE(EXCLUDED.type_line, cartas.type_line)
+         RETURNING id, scryfall_id`,
+        [
+            unicas.map((c) => c.scryfallId),
+            unicas.map((c) => c.nombre),
+            unicas.map((c) => c.manaValue),
+            unicas.map((c) => c.manaCost),
+            unicas.map((c) => c.ataque),
+            unicas.map((c) => c.vida),
+            unicas.map((c) => c.descripcion),
+            unicas.map((c) => c.expansionId),
+            unicas.map((c) => c.numeroCarta),
+            unicas.map((c) => c.foil),
+            unicas.map((c) => c.imagenUrl),
+            unicas.map((c) => c.rareza),
+            unicas.map((c) => c.oracleId ?? null),
+            unicas.map((c) => c.typeLine ?? null)
+        ]
+    );
+    const idPorScryfall = new Map<string, number>(rows.map((r) => [r.scryfall_id, r.id]));
+
+    const mapaColores = mapaNombreAId(await obtenerColores(client));
+    const mapaTipos = mapaNombreAId(await obtenerTipos(client));
+    const mapaSubtipos = mapaNombreAId(await obtenerSubtipos(client));
+
+    const colores: [number, number][] = [];
+    const tipos: [number, number][] = [];
+    const subtipos: [number, number][] = [];
+
+    for (const carta of unicas) {
+        const cartaId = idPorScryfall.get(carta.scryfallId)!;
+        for (const color of carta.colores) {
+            const colorId = mapaColores.get(color);
+            if (colorId !== undefined) colores.push([cartaId, colorId]);
+        }
+        for (const palabra of carta.tipos) {
+            const tipoId = mapaTipos.get(palabra);
+            const subtipoId = mapaSubtipos.get(palabra);
+            if (tipoId !== undefined) tipos.push([cartaId, tipoId]);
+            else if (subtipoId !== undefined) subtipos.push([cartaId, subtipoId]);
+        }
+    }
+
+    const insertarRelacion = async (tabla: string, columna: string, pares: [number, number][]) => {
+        if (pares.length === 0) return;
+        await client.query(
+            `INSERT INTO ${tabla} (carta_id, ${columna}) SELECT * FROM unnest($1::int[], $2::int[]) ON CONFLICT DO NOTHING`,
+            [pares.map((p) => p[0]), pares.map((p) => p[1])]
+        );
+    };
+
+    await insertarRelacion("carta_colores", "color_id", colores);
+    await insertarRelacion("carta_tipos", "tipo_carta_id", tipos);
+    await insertarRelacion("carta_subtipos", "subtipo_carta_id", subtipos);
+
+    return idPorScryfall;
+};
+
+/* Igual que guardarCartaEnInventario pero sin tocar inventario — para cuando
+   solo hace falta la fila del catálogo (ej. añadir una carta a un mazo que
+   todavía no se posee). */
+export const resolverOCrearCarta = async (carta: CartaParaInventario): Promise<number> => {
+    return ejecutarEnTransaccion(async (client) => {
+        const cartaId = await insertarOAsignarCarta(client, carta);
+        await insertarColoresCarta(client, cartaId, carta.colores);
+        await insertarTiposDeCarta(client, cartaId, carta.tipos);
+        return cartaId;
+    });
 }
 
 export const guardarCartaEnInventario = async (carta: CartaParaInventario, userId: string, cantidad: number = 1) => {

@@ -25,6 +25,8 @@ export interface ResultadoImportacion {
 /* Carta tal como la mandamos en POST /api/inventario (ver adaptarCartaParaInventario) */
 export interface CartaParaInventario {
     scryfallId: string;
+    oracleId: string | null;
+    typeLine: string | null;
     nombre: string;
     manaValue: number | null;
     manaCost: string | null;

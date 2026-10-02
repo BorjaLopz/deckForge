@@ -1,5 +1,11 @@
 export interface CartaParaInventario {
     scryfallId: string;
+    /* Común a todas las impresiones/idiomas: permite cruzar "Sol Ring" (EDHREC)
+       con "Anillo solar" (tu inventario). Opcional por si llega de un cliente viejo. */
+    oracleId?: string | null;
+    /* Línea de tipo de Scryfall en inglés ("Legendary Creature — Elf"):
+       fuente fiable para agrupar por tipo, sin depender del diccionario. */
+    typeLine?: string | null;
     nombre: string;
     manaValue: number | null;
     manaCost: string | null;

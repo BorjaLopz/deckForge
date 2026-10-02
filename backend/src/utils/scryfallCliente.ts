@@ -46,6 +46,51 @@ export const resolverCartaPreferentementeEnEspanol = async (nombre: string): Pro
     return hermanoEs ?? original;
 };
 
+const TAMANO_LOTE_COLLECTION = 75; // máximo que acepta /cards/collection
+const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* Muchas cartas por id en pocas peticiones (75 por lote) en vez de una por
+   carta: para ~300 recomendaciones son 4 llamadas, no 300. */
+export const obtenerCartasPorIds = async (ids: string[]): Promise<CartaScryfallBruta[]> => {
+    const cartas: CartaScryfallBruta[] = [];
+
+    for (let i = 0; i < ids.length; i += TAMANO_LOTE_COLLECTION) {
+        if (i > 0) await esperar(100); // rate limit de Scryfall
+        const lote = ids.slice(i, i + TAMANO_LOTE_COLLECTION);
+        const res = await fetch("https://api.scryfall.com/cards/collection", {
+            method: "POST",
+            headers: { ...cabeceras, "Content-Type": "application/json" },
+            body: JSON.stringify({ identifiers: lote.map((id) => ({ id })) })
+        });
+
+        if (!res.ok) throw new Error("Error pidiendo cartas a Scryfall");
+
+        const data = await res.json();
+        cartas.push(...data.data);
+    }
+
+    return cartas;
+};
+
+/* Plan B cuando el fuzzy no encuentra un nombre en español mal escrito
+   ("rey del valle" vs "rey de Valle"): busca comandantes impresos en
+   español que contengan esas palabras, sin exigir el nombre exacto. */
+export const buscarComandantesEnEspanol = async (palabras: string[]): Promise<CartaScryfallBruta[]> => {
+    const q = `is:commander lang:es ${palabras.join(" ")}`;
+    const res = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}`, {
+        method: "GET",
+        headers: cabeceras
+    });
+    const data = await res.json();
+
+    return data.object === "list" && Array.isArray(data.data) ? data.data : [];
+};
+
+/* Fuzzy sin preferencia de idioma: devuelve el nombre canónico en inglés,
+   que es lo que necesitan servicios externos como EDHREC. Acepta también
+   el nombre en español. */
+export const resolverCartaEnIngles = buscarCartaPorNombreFuzzy;
+
 const obtenerCartaExacta = async (set: string, numero: string, lang?: string): Promise<CartaScryfallBruta | null> => {
     const url = lang
         ? `https://api.scryfall.com/cards/${set}/${numero}/${lang}`

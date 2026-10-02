@@ -19,6 +19,7 @@ export interface ExpansionScryfall {
 /* Carta bruta de Scryfall (solo los campos que usamos al importar/adaptar) */
 export interface CartaScryfallBruta {
     id: string;
+    oracle_id?: string;
     name: string;
     printed_name?: string;
     set: string;
@@ -33,5 +34,6 @@ export interface CartaScryfallBruta {
     oracle_text?: string;
     printed_text?: string;
     rarity?: string;
-    image_uris?: { normal?: string };
+    image_uris?: { normal?: string; small?: string };
+    card_faces?: { image_uris?: { normal?: string; small?: string } }[];
 }

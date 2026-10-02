@@ -1,5 +1,6 @@
 export interface CartaScryfall {
     id: string;
+    oracle_id?: string;
     name: string;
     printed_name?: string;
     set: string;
