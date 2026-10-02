@@ -8,6 +8,9 @@ interface FiltroCategoriasProps {
 	opciones: OpcionCategoria[];
 	seleccionada: string | null; // null = todas
 	onSeleccionar: (clave: string | null) => void;
+	/* Para "Todas". Si no se pasa, suma las opciones — no vale cuando
+	   alguna opción se solapa con otras (ej. "Con problemas"). */
+	total?: number;
 }
 
 const claseChip = (activo: boolean) =>
@@ -19,8 +22,8 @@ const claseChip = (activo: boolean) =>
 
 /* En móvil, scroll horizontal (sin barra visible) para no ocupar media
    pantalla; desde sm hay sitio y salta a varias líneas. */
-const FiltroCategorias = ({ opciones, seleccionada, onSeleccionar }: FiltroCategoriasProps) => {
-	const total = opciones.reduce((suma, o) => suma + o.contador, 0);
+const FiltroCategorias = ({ opciones, seleccionada, onSeleccionar, total: totalExplicito }: FiltroCategoriasProps) => {
+	const total = totalExplicito ?? opciones.reduce((suma, o) => suma + o.contador, 0);
 
 	return (
 		<div

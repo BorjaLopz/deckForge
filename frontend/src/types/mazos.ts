@@ -19,6 +19,9 @@ export interface CartaEnMazo {
     scryfall_id: string;
     oracle_id: string | null;
     type_line: string | null;
+    legalidades: Record<string, string> | null;
+    identidad_color: string | null;
+    game_changer: boolean | null;
     nombre: string;
     mana_value: number | null;
     mana_cost: string | null;

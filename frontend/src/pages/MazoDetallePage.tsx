@@ -11,6 +11,9 @@ import SeccionPlegable from "../components/SeccionPlegable";
 import FiltroCategorias from "../components/FiltroCategorias";
 import { agruparPorTipo } from "../utils/tiposDeCarta";
 import { esTierraBasica, estadoTamano, FORMATOS, puedeSerComandante } from "../utils/formatos";
+import { problemasDeCarta } from "../utils/legalidad";
+import { calcularEstadisticas } from "../utils/estadisticasMazo";
+import EstadisticasMazo from "../components/EstadisticasMazo";
 import type { CartaEnMazo, MazoDetalle } from "../types/mazos";
 
 /* Resultado normalizado: de inventario trae cartaId; de Scryfall, el nombre
@@ -240,8 +243,24 @@ const MazoDetallePage = () => {
         ...agruparPorTipo(mazo.cartas.filter((c) => c.id !== mazo.comandante_id), (c) => c.type_line)
     ];
     const copias = (cartas: CartaEnMazo[]) => cartas.reduce((suma, c) => suma + c.cantidad, 0);
+
+    /* Legalidad: avisa, no bloquea (puedes estar armando un mazo casual).
+       "Con problemas" es un grupo extra que solo se ve al filtrar por él,
+       para no repetir cartas en la vista "Todas". */
+    const identidadComandante = comandante[0]?.identidad_color ?? null;
+    const problemasPorCarta = new Map(mazo.cartas.map((c) => [
+        c.id,
+        problemasDeCarta(c, mazo.formato, identidadComandante, c.id === mazo.comandante_id)
+    ]));
+    const conProblemas = mazo.cartas.filter((c) => problemasPorCarta.get(c.id)!.length > 0);
+    const grupoProblemas = { clave: "problemas", etiqueta: "Con problemas", items: conProblemas };
+    const opcionesFiltro = [...grupos, ...(conProblemas.length > 0 ? [grupoProblemas] : [])];
+
     // si quitas la última carta del tipo filtrado, volvemos a "Todas"
-    const filtroEfectivo = grupos.some((g) => g.clave === filtroTipo) ? filtroTipo : null;
+    const filtroEfectivo = opcionesFiltro.some((g) => g.clave === filtroTipo) ? filtroTipo : null;
+    const gruposVisibles = filtroEfectivo === "problemas"
+        ? [grupoProblemas]
+        : grupos.filter((g) => filtroEfectivo === null || g.clave === filtroEfectivo);
 
     return (
         <div className="max-w-3xl mx-auto px-8 py-6">
@@ -281,6 +300,17 @@ const MazoDetallePage = () => {
             </div>
 
             {errorCantidad && <p className="text-xs text-red-400 -mt-4 mb-4">{errorCantidad}</p>}
+
+            {conProblemas.length > 0 && (
+                <button
+                    type="button"
+                    onClick={() => setFiltroTipo("problemas")}
+                    className="w-full text-left border border-red-400/30 rounded-lg px-4 py-3 mb-6 text-xs text-red-400 hover:border-red-400/60 transition-colors"
+                >
+                    {conProblemas.length === 1 ? "1 carta no es legal" : `${conProblemas.length} cartas no son legales`} en este mazo {reglas.etiqueta}.
+                    <span className="text-noc-neutral-500"> Ver cuáles →</span>
+                </button>
+            )}
 
             {reglas.usaComandante && comandante.length === 0 && mazo.cartas.length > 0 && (
                 <div className="border border-noc-divider rounded-lg px-4 py-3 mb-6 text-xs text-noc-neutral-500">
@@ -370,13 +400,16 @@ const MazoDetallePage = () => {
                 </p>
             ) : (
                 <div className="flex flex-col gap-4">
+                    <SeccionPlegable titulo="Estadísticas">
+                        <EstadisticasMazo estadisticas={calcularEstadisticas(mazo.cartas, mazo.formato)} />
+                    </SeccionPlegable>
                     <FiltroCategorias
-                        opciones={grupos.map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, contador: copias(g.items) }))}
+                        opciones={opcionesFiltro.map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, contador: copias(g.items) }))}
+                        total={copias(mazo.cartas)}
                         seleccionada={filtroEfectivo}
                         onSeleccionar={setFiltroTipo}
                     />
-                    {grupos
-                        .filter((g) => filtroEfectivo === null || g.clave === filtroEfectivo)
+                    {gruposVisibles
                         .map((g) => (
                             <SeccionPlegable key={g.clave} titulo={g.etiqueta} detalle={String(copias(g.items))}>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-2">
@@ -394,6 +427,9 @@ const MazoDetallePage = () => {
                                             <span className={`text-[11px] text-center ${carta.cantidad_faltante > 0 ? "text-noc-neutral-500" : "text-noc-accent"}`}>
                                                 {carta.cantidad_faltante > 0 ? `Faltan ${carta.cantidad_faltante}` : "En tu inventario"}
                                             </span>
+                                            {problemasPorCarta.get(carta.id)!.map((p) => (
+                                                <span key={p.tipo} className="text-[11px] text-center text-red-400">{p.mensaje}</span>
+                                            ))}
                                             {carta.id === mazo.comandante_id ? (
                                                 <button type="button" onClick={() => handleComandante(null)} className="text-[11px] text-noc-neutral-500 hover:text-noc-text transition-colors">
                                                     Quitar como comandante
