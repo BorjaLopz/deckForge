@@ -27,6 +27,9 @@ export interface CartaParaInventario {
     scryfallId: string;
     oracleId: string | null;
     typeLine: string | null;
+    legalidades: Record<string, string> | null;
+    identidadColor: string | null;
+    gameChanger: boolean | null;
     nombre: string;
     manaValue: number | null;
     manaCost: string | null;

@@ -1,6 +1,9 @@
 export interface CartaScryfall {
     id: string;
     oracle_id?: string;
+    legalities?: Record<string, string>;
+    color_identity?: string[];
+    game_changer?: boolean;
     name: string;
     printed_name?: string;
     set: string;

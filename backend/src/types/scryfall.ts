@@ -35,5 +35,8 @@ export interface CartaScryfallBruta {
     printed_text?: string;
     rarity?: string;
     image_uris?: { normal?: string; small?: string };
+    legalities?: Record<string, string>; // "legal" | "not_legal" | "banned" | "restricted"
+    color_identity?: string[];
+    game_changer?: boolean;
     card_faces?: { image_uris?: { normal?: string; small?: string } }[];
 }

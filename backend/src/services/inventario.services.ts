@@ -4,15 +4,19 @@ import { CartaParaInventario } from "../types/inventario";
 
 const insertarOAsignarCarta = async (client: PoolClient, carta: Omit<CartaParaInventario, "colores" | "tipos">): Promise<number> => {
 
-    const sql = `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza, oracle_id, type_line)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    const sql = `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza, oracle_id, type_line, legalidades, identidad_color, game_changer)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
                 ON CONFLICT (scryfall_id) DO UPDATE SET imagen_url = EXCLUDED.imagen_url, rareza = EXCLUDED.rareza,
                     oracle_id = COALESCE(EXCLUDED.oracle_id, cartas.oracle_id),
-                    type_line = COALESCE(EXCLUDED.type_line, cartas.type_line)
+                    type_line = COALESCE(EXCLUDED.type_line, cartas.type_line),
+                    legalidades = COALESCE(EXCLUDED.legalidades, cartas.legalidades),
+                    identidad_color = COALESCE(EXCLUDED.identidad_color, cartas.identidad_color),
+                    game_changer = COALESCE(EXCLUDED.game_changer, cartas.game_changer)
                 RETURNING id
                 `
 
-    const resultado = await client.query(sql, [carta.scryfallId, carta.nombre, carta.manaValue, carta.manaCost, carta.ataque, carta.vida, carta.descripcion, carta.expansionId, carta.numeroCarta, carta.foil, carta.imagenUrl, carta.rareza, carta.oracleId ?? null, carta.typeLine ?? null])
+    const resultado = await client.query(sql, [carta.scryfallId, carta.nombre, carta.manaValue, carta.manaCost, carta.ataque, carta.vida, carta.descripcion, carta.expansionId, carta.numeroCarta, carta.foil, carta.imagenUrl, carta.rareza, carta.oracleId ?? null, carta.typeLine ?? null,
+        carta.legalidades ? JSON.stringify(carta.legalidades) : null, carta.identidadColor ?? null, carta.gameChanger ?? null])
 
     return resultado.rows[0].id;
 
@@ -118,12 +122,16 @@ export const resolverOCrearCartasEnLote = async (
     if (unicas.length === 0) return new Map();
 
     const { rows } = await client.query(
-        `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza, oracle_id, type_line)
+        `INSERT INTO cartas (scryfall_id, nombre, mana_value, mana_cost, ataque, vida, descripcion, expansion_id, numero_carta, foil, imagen_url, rareza, oracle_id, type_line, legalidades, identidad_color, game_changer)
          SELECT * FROM unnest($1::uuid[], $2::varchar[], $3::int[], $4::varchar[], $5::int[], $6::int[], $7::text[],
-                              $8::int[], $9::varchar[], $10::bool[], $11::text[], $12::varchar[], $13::uuid[], $14::text[])
+                              $8::int[], $9::varchar[], $10::bool[], $11::text[], $12::varchar[], $13::uuid[], $14::text[],
+                              $15::jsonb[], $16::varchar[], $17::bool[])
          ON CONFLICT (scryfall_id) DO UPDATE SET imagen_url = EXCLUDED.imagen_url, rareza = EXCLUDED.rareza,
              oracle_id = COALESCE(EXCLUDED.oracle_id, cartas.oracle_id),
-             type_line = COALESCE(EXCLUDED.type_line, cartas.type_line)
+             type_line = COALESCE(EXCLUDED.type_line, cartas.type_line),
+             legalidades = COALESCE(EXCLUDED.legalidades, cartas.legalidades),
+             identidad_color = COALESCE(EXCLUDED.identidad_color, cartas.identidad_color),
+             game_changer = COALESCE(EXCLUDED.game_changer, cartas.game_changer)
          RETURNING id, scryfall_id`,
         [
             unicas.map((c) => c.scryfallId),
@@ -139,7 +147,10 @@ export const resolverOCrearCartasEnLote = async (
             unicas.map((c) => c.imagenUrl),
             unicas.map((c) => c.rareza),
             unicas.map((c) => c.oracleId ?? null),
-            unicas.map((c) => c.typeLine ?? null)
+            unicas.map((c) => c.typeLine ?? null),
+            unicas.map((c) => (c.legalidades ? JSON.stringify(c.legalidades) : null)),
+            unicas.map((c) => c.identidadColor ?? null),
+            unicas.map((c) => c.gameChanger ?? null)
         ]
     );
     const idPorScryfall = new Map<string, number>(rows.map((r) => [r.scryfall_id, r.id]));

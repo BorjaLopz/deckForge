@@ -9,6 +9,10 @@ const aEnteroONull = (valor: string | number | undefined): number | null => {
     return valor !== undefined && valor !== "" && Number.isFinite(numero) ? Math.round(numero) : null;
 };
 
+/* ["G","W","U"] -> "WUG": siempre en orden WUBRG para poder compararlas. */
+export const identidadOrdenada = (colores: string[] | undefined): string =>
+    [...(colores ?? [])].sort((a, b) => "WUBRG".indexOf(a) - "WUBRG".indexOf(b)).join("");
+
 export const construirCartaParaInventario = (carta: CartaScryfallBruta): CartaParaInventario => {
     const tipoParte = carta.type_line.split("—")[0] ?? "";
     const tiposTraducidos = tipoParte.trim().split(" ").map((t) => translator("tipos", t));
@@ -24,6 +28,9 @@ export const construirCartaParaInventario = (carta: CartaScryfallBruta): CartaPa
         scryfallId: carta.id,
         oracleId: carta.oracle_id ?? null,
         typeLine: carta.type_line ?? null,
+        legalidades: carta.legalities ?? null,
+        identidadColor: carta.color_identity ? identidadOrdenada(carta.color_identity) : null,
+        gameChanger: carta.game_changer ?? null,
         nombre: carta.printed_name ?? carta.name,
         manaValue: aEnteroONull(carta.cmc), // las cartas Un- tienen coste 0.5
         manaCost: carta.mana_cost ?? null,

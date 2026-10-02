@@ -15,6 +15,11 @@ export const adaptarCartaParaInventario = (carta: CartaScryfall, esFoil: boolean
     scryfallId: carta.id,
     oracleId: carta.oracle_id ?? null,
     typeLine: carta.type_line ?? null,
+    legalidades: carta.legalities ?? null,
+    identidadColor: carta.color_identity
+        ? [...carta.color_identity].sort((a, b) => "WUBRG".indexOf(a) - "WUBRG".indexOf(b)).join("")
+        : null,
+    gameChanger: carta.game_changer ?? null,
     nombre: carta.printed_name ?? carta.name,
     manaValue: aEnteroONull(carta.cmc),
     manaCost: carta.mana_cost ?? null,

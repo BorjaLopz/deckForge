@@ -6,6 +6,11 @@ export interface CartaParaInventario {
     /* Línea de tipo de Scryfall en inglés ("Legendary Creature — Elf"):
        fuente fiable para agrupar por tipo, sin depender del diccionario. */
     typeLine?: string | null;
+    /* Legalidad por formato tal cual la da Scryfall; cambia con los baneos,
+       por eso se refresca cada vez que la carta se vuelve a guardar. */
+    legalidades?: Record<string, string> | null;
+    identidadColor?: string | null; // "WUBG", en orden WUBRG; "" = incolora
+    gameChanger?: boolean | null;
     nombre: string;
     manaValue: number | null;
     manaCost: string | null;
